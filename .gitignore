@@ -1,0 +1,10 @@
+*.iml
+.idea/
+.vs/
+*.class
+.DS_Store
+*.jar
+*.war
+target/
+__pycache__/
+output/
