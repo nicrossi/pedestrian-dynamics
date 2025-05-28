@@ -74,7 +74,7 @@ def visualize_simulation(data):
     pygame.font.init()
 
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Particle Tunnel Simulation")
+    pygame.display.set_caption("Pedestrian Dynamics Simulation")
     clock = pygame.time.Clock()
 
     timesteps = list(data["timesteps"].items())
