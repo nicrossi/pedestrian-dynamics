@@ -3,6 +3,9 @@ import io.CsvFrameWriter;
 import model.Parameters;
 import model.SimulationState;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 public static void main(String[] args) throws Exception {
     int qIn = args.length > 0 ? Integer.parseInt(args[0]) : 4;
     int steps = args.length > 1 ? Integer.parseInt(args[1]) : 10_000;
@@ -13,7 +16,8 @@ public static void main(String[] args) throws Exception {
 
     SimulationEngine engine = new SimulationEngine(p, 20_000);
 
-    try (CsvFrameWriter writer = new CsvFrameWriter("run.csv", p.dt(), p.outputDt())) {
+    Files.createDirectories(Paths.get("output"));
+    try (CsvFrameWriter writer = new CsvFrameWriter("output/run.csv", p.dt(), p.outputDt())) {
         for (long tick = 0; tick < steps; tick++) {
             SimulationState state = engine.step(tick);
             writer.writeFrameIfDue(state);

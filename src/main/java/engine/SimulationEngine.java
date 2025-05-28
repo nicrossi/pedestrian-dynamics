@@ -33,12 +33,14 @@ public final class SimulationEngine {
     public SimulationState step(long tick) {
         spawn();
         removeExited();
+
         grid.reset();
         for (int i = 0; i < particles.size(); i++) {
             grid.insert(i, particles.get(i).pos());
         }
 
         List<Particle> next = new ArrayList<>(particles.size());
+
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
             List<Particle> neighbors = getNeighbors(i); // TODO
@@ -52,7 +54,6 @@ public final class SimulationEngine {
             Vector2D position = p.pos().add(velocity.mul(params.dt()));
             double y = Math.max(p.radius(), Math.min(W - p.radius(), position.y()));
             p = p.withPosition(Vector2D.of(position.x(), y)).withVelocity(velocity);
-            // agrergaria lista
             next.add(p);
         }
         particles.clear();
@@ -62,8 +63,8 @@ public final class SimulationEngine {
     }
 
     private double adjustRadius(Particle p, List<Particle> neighbors) {
-        // TODO ni idea
-        return 0;
+        // TODO
+        return params.rMax(); // Placeholder, no adjustment logic implemented
     }
 
     private Vector2D wallForce(Vector2D p, double r) {
