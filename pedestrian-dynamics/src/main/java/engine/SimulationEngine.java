@@ -17,7 +17,8 @@ public final class SimulationEngine {
     private final List<Integer> neighborIndices = new ArrayList<>();
     private final MovementStrategy movementStrategy;
     private final CellGrid grid;
-
+    private int nextId = 0;
+    private double countL = 0, countR = 0;
 
     public SimulationEngine(Parameters params, int maxParticles) {
         this.params = params;
@@ -25,15 +26,18 @@ public final class SimulationEngine {
         this.L = params.corridorLength();
         this.W = params.corridorWidth();
         this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p());
-        this.grid = new CellGrid(L, W, params.rMax(), maxParticles);
+        this.grid = new CellGrid(L, W, params.rMax(), maxParticles); // TODO adjust to the appropriate cell size
 
     }
 
     public SimulationState step(long tick) {
-        // TODO
-        // spawn particles
-        // remove particles that are out of bounds
-        //
+        spawn();
+        removeExited();
+        grid.reset();
+        for (int i = 0; i < particles.size(); i++) {
+            grid.insert(i, particles.get(i).pos());
+        }
+
         List<Particle> next = new ArrayList<>(particles.size());
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
@@ -87,5 +91,43 @@ public final class SimulationEngine {
         return result;
     }
 
+    private void spawn() {
+        // Calculate the expected number of particles to spawn per side this tick
+        double inflowPerTick = params.inflowPerSide() * params.dt();
+        countL += inflowPerTick;
+        countR += inflowPerTick;
+
+        int spawnLeftCount = (int) countL;
+        countL -= spawnLeftCount;
+        for (int i = 0; i < spawnLeftCount; i++) {
+            spawnLeft();
+        }
+
+        int spawnRightCount = (int) countR;
+        countR -= spawnRightCount;
+        for (int i = 0; i < spawnRightCount; i++) {
+            spawnRight();
+        }
+    }
+
+    private void spawnLeft() {
+        if (particles.size() >= maxParticles) return;
+        particles.add(initParticle(+params.desiredSpeed(), params.rMax()));
+    }
+
+    private void spawnRight() {
+        if (particles.size() >= maxParticles) return;
+        particles.add(initParticle(-params.desiredSpeed(), params.rMax()));
+    }
+
+    private Particle initParticle(double vx, double r) {
+        double y = r + Math.random() * (W - 2 * r);
+        double x = (vx > 0 ? -r : L + r);   // spawn just outside, slide in next tick
+        return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r);
+    }
+
+    private void removeExited() {
+        particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
+    }
 
 }

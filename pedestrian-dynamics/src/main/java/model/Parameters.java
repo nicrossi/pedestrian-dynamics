@@ -18,7 +18,7 @@ public record Parameters(
         private double A_w = 10.0;
         private double B_w = 1.0;
         private double v = 1.5;
-        private double A = 1.1, B = 2.1;
+        private double A_p = 1.1, B_p = 2.1;
         private double dt = 0.02, outDt = 0.02;
         private double L = 16, W = 3.6;
         private double inflow = 3.0;
@@ -30,12 +30,12 @@ public record Parameters(
         }
 
         public Builder Ap(double a) {
-            A = a;
+            A_p = a;
             return this;
         }
 
         public Builder Bp(double b) {
-            B = b;
+            B_p = b;
             return this;
         }
 
@@ -81,7 +81,7 @@ public record Parameters(
         }
 
         public Parameters build() {
-            return new Parameters(v, A, B, dt, outDt, L, W, inflow, rMin, rMax, A_w, B_w);
+            return new Parameters(v, A_p, B_p, dt, outDt, L, W, inflow, rMin, rMax, A_w, B_w);
         }
     }
 }
