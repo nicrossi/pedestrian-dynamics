@@ -14,6 +14,7 @@ public final class SimulationEngine {
     private final int maxParticles;
     private final double L, W;
     private final List<Particle> particles = new ArrayList<>();
+    private final List<Integer> neighborIndices = new ArrayList<>();
     private final MovementStrategy movementStrategy;
     private final CellGrid grid;
 
@@ -24,7 +25,7 @@ public final class SimulationEngine {
         this.L = params.corridorLength();
         this.W = params.corridorWidth();
         this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p());
-        this.grid = new CellGrid(/*...*/); // TODO initialize grid
+        this.grid = new CellGrid(L, W, params.rMax(), maxParticles);
 
     }
 
@@ -72,6 +73,18 @@ public final class SimulationEngine {
             f = f.add(Vector2D.of(0, params.A_w() * Math.exp(-dTop / params.B_w())));
 
         return f;
+    }
+
+    private List<Particle> getNeighbors(int idxSelf) {
+        neighborIndices.clear();
+        grid.forEachNeighbour(particles.get(idxSelf).pos(), j -> {
+            if (j != idxSelf) {
+                neighborIndices.add(j);
+            }
+        });
+        List<Particle> result = new ArrayList<>(neighborIndices.size());
+        for (int j : neighborIndices) result.add(particles.get(j));
+        return result;
     }
 
 
