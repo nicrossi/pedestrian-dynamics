@@ -33,9 +33,15 @@ public record Vector2D(double x, double y) {
         return Math.sqrt(lengthSq());
     }
 
-    public Vector2D normalized() {
+    public Vector2D normalised() {
         double len = length();
-        return  len == 0.0 ? this : new Vector2D(x / len, y / len);
+        return len == 0.0 ? this : new Vector2D(x / len, y / len);
+    }
+
+    public Vector2D rotate(double angle) {
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        return new Vector2D(cos * x - sin * y, sin * x + cos * y);
     }
 
     public double distanceSq(Vector2D o) {
@@ -44,11 +50,5 @@ public record Vector2D(double x, double y) {
 
     public double distance(Vector2D o) {
         return Math.sqrt(distanceSq(o));
-    }
-
-    public Vector2D rotate(double angle) {
-        double cos = Math.cos(angle);
-        double sin = Math.sin(angle);
-        return new Vector2D(x * cos - sin * y, sin * x + cos * y);
     }
 }

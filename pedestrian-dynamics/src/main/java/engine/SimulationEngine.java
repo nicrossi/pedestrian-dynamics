@@ -2,7 +2,9 @@ package engine;
 
 import model.Parameters;
 import model.Particle;
+import model.SimulationState;
 import model.Vector2D;
+import space.CellGrid;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,9 +14,11 @@ public final class SimulationEngine {
     private final int maxParticles;
     private final double L, W;
     private final List<Particle> particles = new ArrayList<>();
+    private final List<Integer> neighborIndices = new ArrayList<>();
     private final MovementStrategy movementStrategy;
-    private static final double A_W = 10.0;
-    private static final double B_W = 1.0;
+    private final CellGrid grid;
+    private int nextId = 0;
+    private double countL = 0, countR = 0;
 
     public SimulationEngine(Parameters params, int maxParticles) {
         this.params = params;
@@ -22,50 +26,109 @@ public final class SimulationEngine {
         this.L = params.corridorLength();
         this.W = params.corridorWidth();
         this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p());
+        this.grid = new CellGrid(L, W, params.rMax(), maxParticles); // TODO adjust to the appropriate cell size
+
     }
 
-    // step()
-        // inyecte particulas
-        // remueva las que salen
+    public SimulationState step(long tick) {
+        spawn();
+        removeExited();
 
-        // por cada particula
-            // get neighbors
+        grid.reset();
+        for (int i = 0; i < particles.size(); i++) {
+            grid.insert(i, particles.get(i).pos());
+        }
 
-    public void step(long tick) {
-        // agregar particulas
+        List<Particle> next = new ArrayList<>(particles.size());
+
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
-            List<Particle> neighbors = getNeighbors(); // TODO
+            List<Particle> neighbors = getNeighbors(i); // TODO
             // ajusto el radio?? // TODO
             p = p.withRadius(adjustRadius(p, neighbors));
             Vector2D dir = movementStrategy.desiredDirection(p, neighbors)
-                    .normalized();
+                    .add(wallForce(p.pos(), p.radius()))
+                    .normalised();
 
             Vector2D velocity = dir.mul(params.desiredSpeed());
             Vector2D position = p.pos().add(velocity.mul(params.dt()));
-            double y = Math.max(p.radius(), Math.min(W - p.radius(), position.y()));
+            double y = Math.max(p.radius(), Math.min(W - 2 * p.radius(), position.y()));
             p = p.withPosition(Vector2D.of(position.x(), y)).withVelocity(velocity);
-            // agrergaria lista
+            next.add(p);
         }
+        particles.clear();
+        particles.addAll(next);
+
+        return new SimulationState(tick, List.copyOf(next));
     }
 
     private double adjustRadius(Particle p, List<Particle> neighbors) {
-        // TODO ni idea
-        return 0;
+        // TODO
+        return params.rMax(); // Placeholder, no adjustment logic implemented
     }
 
     private Vector2D wallForce(Vector2D p, double r) {
         double dBottom = p.y() - r;
         double dTop = (W - r) - p.y();
         Vector2D f = Vector2D.zero();
-        if (dBottom < 1.0)
-            f = f.add(Vector2D.of(0, A_W * Math.exp(-dBottom / B_W)));
+        if (dBottom < r)
+            f = f.add(Vector2D.of(0, params.A_w() * Math.exp(-dBottom / params.B_w())));
 
-        if (dTop < 1.0)
-            f = f.add(Vector2D.of(0, A_W * Math.exp(-dTop / B_W)));
+        if (dTop < r)
+            f = f.add(Vector2D.of(0, -params.A_w() * Math.exp(-dTop / params.B_w())));
 
         return f;
     }
 
+    private List<Particle> getNeighbors(int idxSelf) {
+        neighborIndices.clear();
+        grid.forEachNeighbour(particles.get(idxSelf).pos(), j -> {
+            if (j != idxSelf) {
+                neighborIndices.add(j);
+            }
+        });
+        List<Particle> result = new ArrayList<>(neighborIndices.size());
+        for (int j : neighborIndices) result.add(particles.get(j));
+        return result;
+    }
+
+    private void spawn() {
+        // Calculate the expected number of particles to spawn per side this tick
+        double inflowPerTick = params.inflowPerSide() * params.dt();
+        countL += inflowPerTick;
+        countR += inflowPerTick;
+
+        int spawnLeftCount = (int) countL;
+        countL -= spawnLeftCount;
+        for (int i = 0; i < spawnLeftCount; i++) {
+            spawnLeft();
+        }
+
+        int spawnRightCount = (int) countR;
+        countR -= spawnRightCount;
+        for (int i = 0; i < spawnRightCount; i++) {
+            spawnRight();
+        }
+    }
+
+    private void spawnLeft() {
+        if (particles.size() >= maxParticles) return;
+        particles.add(initParticle(+params.desiredSpeed(), params.rMax()));
+    }
+
+    private void spawnRight() {
+        if (particles.size() >= maxParticles) return;
+        particles.add(initParticle(-params.desiredSpeed(), params.rMax()));
+    }
+
+    private Particle initParticle(double vx, double r) {
+        double y = r + Math.random() * (W - 2 * r);
+        double x = (vx > 0 ? -r : L + r);   // spawn just outside, slide in next tick
+        return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r);
+    }
+
+    private void removeExited() {
+        particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
+    }
 
 }
