@@ -80,7 +80,7 @@ def visualize_simulation(data):
     clock = pygame.time.Clock()
 
     timesteps = list(data["timesteps"].items())
-    delta_t = 0.0001
+    delta_t = 0.1/(2*1.5) #hardcodeado r_min/(2*max(v_d,v_e))
 
     running = True
     timestep_index = 0
