@@ -1,8 +1,8 @@
 import pygame
 import time
 import math
-
-# Store data as 
+import sys
+import csv
 '''
 L: length
 W: width
@@ -10,9 +10,9 @@ delta t
 x, y, vx, vy for each particle
 '''
 
-def parse_particle_data(lines):
-    L = float(lines[0].strip())   
-    W = float(lines[1].strip())   
+def parse_particle_data(file_path):
+    L = 16
+    W = 3.6
     
     data = {
         "L": L,
@@ -20,23 +20,25 @@ def parse_particle_data(lines):
         "timesteps": {}
     }
 
-    i = 2
-    while i < len(lines):
-        if lines[i].strip().isdigit():
-            timestep = int(lines[i].strip())
-            i += 1
-            particles = {}
-            particle_count = 1
-            while i < len(lines) and len(lines[i].strip().split()) == 4:
-                x, y, vx, vy = map(float, lines[i].strip().split())
-                particles[f"p_{particle_count}"] = {
-                    "x": x, "y": y, "vx": vx, "vy": vy
-                }
-                i += 1
-                particle_count += 1
-            data["timesteps"][f"{timestep}"] = particles
-        else:
-            i += 1  
+    with open(file_path, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)  # Skip the header row
+
+        for row in reader:
+            t, particle_id, x, y, xv, xy,r = row
+            t = float(t)
+            x, y, xv, xy,r = map(float, (x, y, xv, xy,r))
+
+            if t not in data["timesteps"]:
+                data["timesteps"][t] = {}
+
+            data["timesteps"][t][particle_id] = {
+                "x": x,
+                "y": y,
+                "vx": xv,
+                "vy": xy,
+                "r":r
+            }
     return data
 
 WINDOW_WIDTH = 1000
@@ -78,7 +80,7 @@ def visualize_simulation(data):
     clock = pygame.time.Clock()
 
     timesteps = list(data["timesteps"].items())
-    delta_t = data["delta_t"]
+    delta_t = 0.0001
 
     running = True
     timestep_index = 0
@@ -99,50 +101,19 @@ def visualize_simulation(data):
         for p in particles.values():
             x = int(PADDING_X + p["x"] * scale_x)
             y = int(PADDING_Y + (data["W"] - p["y"]) * scale_y)
-            pygame.draw.circle(screen, PARTICLE_COLOR, (x, y), 6)
+            pygame.draw.circle(screen, PARTICLE_COLOR, (x, y), p["r"])
             draw_arrow(screen, x, y, p["vx"], -p["vy"])
 
         pygame.display.flip()
         clock.tick(1 / delta_t)
-        time.sleep(0.5) # TODO: decrease or delete when used for real data
         timestep_index += 1
 
     pygame.quit()
 
 
-def main():
-    # TODO: just for development, remove when used for real data
-    mock_data = {
-        'L': 16.0,
-        'W': 3.6,
-        'delta_t': 0.1,
-        'timesteps': {
-            '1': {
-                'particle_1': {'x': 1, 'y': 0.5, 'vx': 1.2, 'vy': 0.3},
-                'particle_2': {'x': 3, 'y': 1.0, 'vx': 1.1, 'vy': -0.2},
-                'particle_3': {'x': 2, 'y': 2.0, 'vx': 1.4, 'vy': 0.0}
-            },
-            '2': {
-                'particle_1': {'x': 1.2, 'y': 0.53, 'vx': 1.2, 'vy': 0.3},
-                'particle_2': {'x': 3.2, 'y': 0.96, 'vx': 1.1, 'vy': -0.2},
-                'particle_3': {'x': 2.4, 'y': 2.0, 'vx': 1.4, 'vy': 0.0}
-            },
-            '3': {
-                'particle_1': {'x': 1.4, 'y': 0.56, 'vx': 1.2, 'vy': 0.3},
-                'particle_2': {'x': 3.4, 'y': 0.92, 'vx': 1.1, 'vy': -0.2},
-                'particle_3': {'x': 2.8, 'y': 2.0, 'vx': 1.4, 'vy': 0.0}
-            },
-            '4': {
-                'particle_1': {'x': 1.6, 'y': 0.59, 'vx': 1.2, 'vy': 0.3},
-                'particle_2': {'x': 3.6, 'y': 0.88, 'vx': 1.1, 'vy': -0.2},
-                'particle_3': {'x': 3.2, 'y': 2.0, 'vx': 1.4, 'vy': 0.0},
-                'particle_4': {'x': 0.0, 'y': 3.5, 'vx': 2.0, 'vy': -1.0}
-            }
-        }
-    }
 
-    visualize_simulation(mock_data)
 
 
 if __name__ == "__main__":
-    main()
+    data=parse_particle_data(sys.argv[1])
+    visualize_simulation(data)
