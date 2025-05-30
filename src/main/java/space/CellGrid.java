@@ -1,8 +1,11 @@
 package space;
 
+import model.Particle;
 import model.Vector2D;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.IntConsumer;
 
 public final class CellGrid {
