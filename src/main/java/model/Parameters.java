@@ -19,10 +19,12 @@ public record Parameters(
         private double B_w = 1.0;
         private double v = 1.5;
         private double A_p = 1.1, B_p = 2.1;
-        private double dt = 0.02, outDt = 0.02;
+
         private double L = 16, W = 3.6;
         private double inflow = 3.0;
         private double rMin = 0.10, rMax = 0.35;
+        private double dt = rMin/(2*1.5);//v_d==v_e ~= 0.033;
+        private double outDt = 5*dt;
 
         public Builder desiredSpeed(double v0) {
             v = v0;

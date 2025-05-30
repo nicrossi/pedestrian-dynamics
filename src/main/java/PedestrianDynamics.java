@@ -8,7 +8,7 @@ import java.nio.file.Paths;
 
 public static void main(String[] args) throws Exception {
     int qIn = args.length > 0 ? Integer.parseInt(args[0]) : 4;
-    int steps = args.length > 1 ? Integer.parseInt(args[1]) : 10_000;
+    int simulationTime = args.length > 1 ? Integer.parseInt(args[1]) : 60;//segundos
 
     Parameters p = Parameters.builder()
             .inflow(qIn)
@@ -17,10 +17,14 @@ public static void main(String[] args) throws Exception {
     SimulationEngine engine = new SimulationEngine(p, 20_000);
 
     Files.createDirectories(Paths.get("output"));
+    double time=0;
+    long tick=0;
     try (CsvFrameWriter writer = new CsvFrameWriter("output/run.csv", p.dt(), p.outputDt())) {
-        for (long tick = 0; tick < steps; tick++) {
+        while(time<simulationTime){
             SimulationState state = engine.step(tick);
             writer.writeFrameIfDue(state);
+            time+=p.dt();
+            tick++;
         }
     }
 }
