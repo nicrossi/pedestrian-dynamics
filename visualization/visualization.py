@@ -49,6 +49,8 @@ BG_COLOR = (245, 245, 245)
 PARTICLE_COLOR = (30, 30, 30)
 ARROW_COLOR = (0, 100, 255)
 TUNNEL_COLOR = (180, 180, 180)
+C_L = (0x7f, 0xc9, 0x7f)
+C_R = (0xfd, 0xc0, 0x86)
 
 def draw_arrow(screen, x, y, vx, vy, scale=20):
     end_x = x + vx * scale
@@ -85,6 +87,13 @@ def visualize_simulation(data):
     running = True
     timestep_index = 0
 
+    color_by_id = {}
+    def pick_color(pid, vx0):
+        if pid in color_by_id:
+            return color_by_id[pid]
+        color_by_id[pid] = C_L if vx0 > 0 else C_R
+        return color_by_id[pid]
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -98,10 +107,11 @@ def visualize_simulation(data):
         pygame.draw.rect(screen, TUNNEL_COLOR, (PADDING_X, PADDING_Y, tunnel_px_width, tunnel_px_height), 2)
 
         _, particles = timesteps[timestep_index]
-        for p in particles.values():
+        for pid, p in particles.items():
             x = int(PADDING_X + p["x"] * scale_x)
             y = int(PADDING_Y + (data["W"] - p["y"]) * scale_y)
-            pygame.draw.circle(screen, PARTICLE_COLOR, (x, y), p["r"])
+            color = pick_color(pid, p["vx"])
+            pygame.draw.circle(screen, color, (x, y),  max(2, int(p["r"] * scale_x)))
             draw_arrow(screen, x, y, p["vx"], -p["vy"])
 
         pygame.display.flip()
