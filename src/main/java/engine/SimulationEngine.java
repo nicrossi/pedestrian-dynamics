@@ -30,7 +30,7 @@ public final class SimulationEngine {
 
     }
 
-    public SimulationState step(long tick) {
+    public SimulationState step(long tick,double t) {
         spawn();
         removeExited();
 
@@ -44,8 +44,8 @@ public final class SimulationEngine {
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
             List<Particle> neighbors = getNeighbors(i); // TODO
-            // ajusto el radio?? // TODO
-            p = p.withRadius(adjustRadius(p, neighbors));
+
+            p = p.withRadius(adjustRadius(p, neighbors,t));
             Vector2D dir = movementStrategy.desiredDirection(p, neighbors)
                     .add(wallForce(p.pos(), p.radius()))
                     .normalised();
@@ -62,9 +62,41 @@ public final class SimulationEngine {
         return new SimulationState(tick, List.copyOf(next));
     }
 
-    private double adjustRadius(Particle p, List<Particle> neighbors) {
-        // TODO
-        return params.rMax(); // Placeholder, no adjustment logic implemented
+    private double adjustRadius(Particle p, List<Particle> neighbors,double t) {
+        for(Particle neighbour:neighbors){
+            if(areColliding(p,neighbour))
+                return params.rMin();
+        }
+        double r=p.radius();
+        double dt=params.dt();
+        return Math.min(params.rMax(), r * (t-dt) + params.rMax() * dt/params.tau());
+    }
+
+    private boolean areColliding(Particle p1,Particle p2){
+        double ri=p1.radius();
+        double rj=p2.radius();
+        boolean radiiOverlap=p1.pos().distance(p2.pos())<ri+rj;
+        boolean collide= ri == params.rMin() && radiiOverlap;
+        Vector2D vi=p1.vel();
+        Vector2D posDifference=p2.pos().sub(p1.pos());
+        double betaAngle=Math.acos(vi.dot(posDifference)/(vi.length()*posDifference.length()));
+
+        if(ri!=params.rMin()&& Math.toRadians(betaAngle)>-Math.PI/2 && Math.toRadians(betaAngle)<Math.PI/2 ){
+            collide=true;
+        }
+        return collide && radiiOverlap && (lineProjectionIntersects(p1,p2));
+    }
+
+    private boolean lineProjectionIntersects(Particle p1, Particle p2) {
+        // Approximate: project p1's velocity direction and see if it intersects p2's radius
+        Vector2D dir = p1.vel().normalised();
+        Vector2D leftEdge = p1.vel().add(dir.mul(params.rMin()));
+        Vector2D rightEdge = p1.pos().add(dir.perpendicular().mul(-params.rMin()));
+
+        double distToLeft = p2.pos().sub(leftEdge).length();
+        double distToRight = p2.pos().sub(rightEdge).length();
+
+        return (distToLeft < p2.radius() || distToRight < p2.radius());
     }
 
     private Vector2D wallForce(Vector2D p, double r) {
