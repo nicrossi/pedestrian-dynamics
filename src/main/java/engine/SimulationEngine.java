@@ -81,7 +81,7 @@ public final class SimulationEngine {
         Vector2D posDifference=p2.pos().sub(p1.pos());
         double betaAngle=Math.acos(vi.dot(posDifference)/(vi.length()*posDifference.length()));
 
-        if(ri!=params.rMin()&& Math.toRadians(betaAngle)>-Math.PI/2 && Math.toRadians(betaAngle)<Math.PI/2 ){
+        if(ri!=params.rMin()&& betaAngle> -Math.PI/2 && betaAngle <Math.PI/2 ){
             collide=true;
         }
         return collide && radiiOverlap && (lineProjectionIntersects(p1,p2));
