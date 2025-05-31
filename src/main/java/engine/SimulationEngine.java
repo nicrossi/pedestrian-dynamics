@@ -69,8 +69,9 @@ public final class SimulationEngine {
         }
         double r=p.radius();
         double dt=params.dt();
-        return Math.max(params.rMax(),r*(t-dt)+params.rMax()*dt/params.tau());
+        return Math.min(params.rMax(), r * (t-dt) + params.rMax() * dt/params.tau());
     }
+
     private boolean areColliding(Particle p1,Particle p2){
         double ri=p1.radius();
         double rj=p2.radius();
@@ -85,6 +86,7 @@ public final class SimulationEngine {
         }
         return collide && radiiOverlap && (lineProjectionIntersects(p1,p2));
     }
+
     private boolean lineProjectionIntersects(Particle p1, Particle p2) {
         // Approximate: project p1's velocity direction and see if it intersects p2's radius
         Vector2D dir = p1.vel().normalised();
@@ -96,6 +98,7 @@ public final class SimulationEngine {
 
         return (distToLeft < p2.radius() || distToRight < p2.radius());
     }
+
     private Vector2D wallForce(Vector2D p, double r) {
         double dBottom = p.y() - r;
         double dTop = (W - r) - p.y();
