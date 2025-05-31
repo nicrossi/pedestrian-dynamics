@@ -20,7 +20,7 @@ public record Vector2D(double x, double y) {
     public Vector2D mul(double scalar) {
         return new Vector2D(x * scalar, y * scalar);
     }
-
+    public Vector2D perpendicular() {return new Vector2D(-y, x); } // 90-degree rotation}
     public double dot(Vector2D o) {
         return x * o.x + y * o.y;
     }

@@ -21,7 +21,7 @@ public static void main(String[] args) throws Exception {
     long tick=0;
     try (CsvFrameWriter writer = new CsvFrameWriter("output/run.csv", p.dt(), p.outputDt())) {
         while(time<simulationTime){
-            SimulationState state = engine.step(tick);
+            SimulationState state = engine.step(tick,time);
             writer.writeFrameIfDue(state);
             time+=p.dt();
             tick++;
