@@ -125,5 +125,10 @@ def visualize_simulation(data):
 
 
 if __name__ == "__main__":
+
+    if (len(sys.argv) != 2):
+        print("Usage: python visualization.py <particle_data_file>")
+        sys.exit(1)
+        
     data=parse_particle_data(sys.argv[1])
     visualize_simulation(data)
