@@ -43,7 +43,7 @@ public final class SimulationEngine {
 
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
-            List<Particle> neighbors = getNeighbors(i); // TODO
+            List<Particle> neighbors = getNeighbors(i);
 
             p = p.withRadius(adjustRadius(p, neighbors,t));
             Vector2D dir = movementStrategy.desiredDirection(p, neighbors)
@@ -52,7 +52,7 @@ public final class SimulationEngine {
 
             Vector2D velocity = dir.mul(params.desiredSpeed());
             Vector2D position = p.pos().add(velocity.mul(params.dt()));
-            double y = Math.max(p.radius(), Math.min(W - 2 * p.radius(), position.y()));
+            double y = Math.max(p.radius(), Math.min(W - p.radius(), position.y()));
             p = p.withPosition(Vector2D.of(position.x(), y)).withVelocity(velocity);
             next.add(p);
         }
