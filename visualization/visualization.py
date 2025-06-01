@@ -68,7 +68,7 @@ def draw_arrow(screen, x, y, vx, vy, scale=20):
     pygame.draw.polygon(screen, ARROW_COLOR, [(end_x, end_y), left, right])
 
 
-def visualize_simulation(data):
+def visualize_simulation(data, speed=1.0):
     L, W, R_MAX = data["L"], data["W"], data["R_MAX"]
     tunnel_px_width = WINDOW_WIDTH - 2 * PADDING_X
     tunnel_px_height = WINDOW_HEIGHT - 2 * PADDING_Y
@@ -79,13 +79,19 @@ def visualize_simulation(data):
 
     pygame.display.init()
     pygame.font.init()
-
+    font = pygame.font.SysFont(None,22)
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Pedestrian Dynamics Simulation")
     clock = pygame.time.Clock()
 
     timesteps = list(data["timesteps"].items())
-    delta_t = 0.1/(2*1.5) #hardcodeado r_min/(2*max(v_d,v_e))
+    if len(timesteps) > 1:
+        delta_t = timesteps[1][0] - timesteps[0][0]
+    else:
+        delta_t = 0.1/(2*1.5) #hardcodeado r_min/(2*max(v_d,v_e))
+
+    next_time = time.perf_counter()
+    step = delta_t / speed
 
     running = True
     timestep_index = 0
@@ -116,12 +122,16 @@ def visualize_simulation(data):
         for pid, p in particles.items():
             x = int(PADDING_X + p["x"] * scale_x)
             y = int(PADDING_Y + r_px + (W - R_MAX - p["y"]) * scale_y)
+            if not (0.0 <= p["x"] <= data["L"]):
+                continue
             color = pick_color(pid, p["vx"])
             pygame.draw.circle(screen, color, (x, y),  max(2, int(p["r"] * scale_x)))
             draw_arrow(screen, x, y, p["vx"], -p["vy"])
 
+        screen.blit(font.render(f"t = {timesteps[timestep_index][0]:.2f} s", True, TUNNEL_COLOR), (10,10))
         pygame.display.flip()
-        clock.tick(1 / delta_t)
+        next_time += step
+        time.sleep(max(0, next_time - time.perf_counter()))
         timestep_index += 1
 
     pygame.quit()
@@ -132,9 +142,13 @@ def visualize_simulation(data):
 
 if __name__ == "__main__":
 
-    if (len(sys.argv) != 2):
-        print("Usage: python visualization.py <particle_data_file>")
+    if (len(sys.argv) < 2):
+        print("Usage: python visualization.py <particle_data_file> [speed=1.0]")
         sys.exit(1)
-        
+
     data=parse_particle_data(sys.argv[1])
-    visualize_simulation(data)
+    speed = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0
+    if speed <= 0:
+        sys.exit("speed must be > 0")
+
+    visualize_simulation(data, speed)
