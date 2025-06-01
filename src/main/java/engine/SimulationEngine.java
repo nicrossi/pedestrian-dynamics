@@ -7,6 +7,7 @@ import model.Vector2D;
 import space.CellGrid;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public final class SimulationEngine {
@@ -19,7 +20,7 @@ public final class SimulationEngine {
     private final CellGrid grid;
     private int nextId = 0;
     private double countL = 0, countR = 0;
-
+    private int pedestriansReached=0;
     private static int LEFT = 0;
     private static int RIGHT = 16;
 
@@ -68,7 +69,7 @@ public final class SimulationEngine {
         particles.clear();
         particles.addAll(next);
 
-        return new SimulationState(tick, List.copyOf(next));
+        return new SimulationState(tick, List.copyOf(next),pedestriansReached);
     }
 
     private double adjustRadius(Particle p, List<Particle> neighbors) {
@@ -178,7 +179,14 @@ public final class SimulationEngine {
     }
 
     private void removeExited() {
-        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
+        Iterator<Particle> it= particles.iterator();
+        while(it.hasNext()){
+            Particle p=it.next();
+            if(p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius()){
+                it.remove();
+                pedestriansReached++;
+            }
+        }
         // particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
     }
 

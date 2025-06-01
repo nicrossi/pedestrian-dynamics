@@ -19,12 +19,14 @@ public static void main(String[] args) throws Exception {
     Files.createDirectories(Paths.get("output"));
     double time=0;
     long tick=0;
+    int pedestriansReached=0;
     try (CsvFrameWriter writer = new CsvFrameWriter("output/run.csv", p.dt(), p.outputDt())) {
-        while(time<simulationTime){
+        while(pedestriansReached<200){
             SimulationState state = engine.step(tick,time);
             writer.writeFrameIfDue(state);
             time+=p.dt();
             tick++;
+            pedestriansReached=state.pedestriansReached();
         }
     }
 }
