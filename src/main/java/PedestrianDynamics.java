@@ -19,17 +19,13 @@ public static void main(String[] args) throws Exception {
     Files.createDirectories(Paths.get("output"));
     double time=0;
     long tick=0;
-    int pedestriansSpawnedLeft=0;
-    int pedestriansSpawnedRight=0;
     String file_name = STR."output/run_\{qIn}.csv";
     try (CsvFrameWriter writer = new CsvFrameWriter(file_name, p.dt(), p.outputDt())) {
-        while(pedestriansSpawnedLeft<100 || pedestriansSpawnedRight<100){
+        while(!engine.isFinished()){
             SimulationState state = engine.step(tick,time);
             writer.writeFrameIfDue(state);
             time+=p.dt();
             tick++;
-            pedestriansSpawnedLeft=state.pedestriansSpawnedLeft();
-            pedestriansSpawnedRight=state.pedestriansSpawnedRight();
         }
     }
 }

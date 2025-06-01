@@ -22,6 +22,8 @@ public final class SimulationEngine {
     private double countL = 0, countR = 0;
     private int pedestriansSpawnedLeft=0;
     private int pedestriansSpawnedRight=0;
+    private int pedestriansExitLeft = 0;
+    private int pedestriansExitRight = 0;
     private static int LEFT = 0;
     private static int RIGHT = 16;
 
@@ -182,7 +184,18 @@ public final class SimulationEngine {
     }
 
     private void removeExited() {
-        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
-    }
+        Iterator<Particle> it= particles.iterator();
+        while(it.hasNext()){
+            Particle p=it.next();
+            if(p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius()){
+                it.remove();
+                if (p.begin() == LEFT) pedestriansExitLeft++;
+                if (p.begin() == RIGHT) pedestriansExitRight++;
 
+            }
+        }    }
+
+    public boolean isFinished() {
+        return pedestriansExitRight >= 100 && pedestriansExitLeft >= 100;
+    }
 }
