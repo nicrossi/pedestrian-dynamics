@@ -21,7 +21,8 @@ public static void main(String[] args) throws Exception {
     long tick=0;
     int pedestriansSpawnedLeft=0;
     int pedestriansSpawnedRight=0;
-    try (CsvFrameWriter writer = new CsvFrameWriter("output/run.csv", p.dt(), p.outputDt())) {
+    String file_name = STR."output/run_\{qIn}.csv";
+    try (CsvFrameWriter writer = new CsvFrameWriter(file_name, p.dt(), p.outputDt())) {
         while(pedestriansSpawnedLeft<100 || pedestriansSpawnedRight<100){
             SimulationState state = engine.step(tick,time);
             writer.writeFrameIfDue(state);
