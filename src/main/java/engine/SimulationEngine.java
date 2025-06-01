@@ -182,8 +182,7 @@ public final class SimulationEngine {
     }
 
     private void removeExited() {
-//        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
-        particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
+        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
     }
 
 }
