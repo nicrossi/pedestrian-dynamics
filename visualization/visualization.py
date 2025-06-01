@@ -17,6 +17,7 @@ def parse_particle_data(file_path):
     data = {
         "L": L,
         "W": W,
+        "R_MAX": 0.35,
         "timesteps": {}
     }
 
@@ -68,11 +69,13 @@ def draw_arrow(screen, x, y, vx, vy, scale=20):
 
 
 def visualize_simulation(data):
+    L, W, R_MAX = data["L"], data["W"], data["R_MAX"]
     tunnel_px_width = WINDOW_WIDTH - 2 * PADDING_X
     tunnel_px_height = WINDOW_HEIGHT - 2 * PADDING_Y
 
-    scale_x = tunnel_px_width / data['L']
-    scale_y = tunnel_px_height / data['W']
+    scale_x = tunnel_px_width / L
+    r_px = int(R_MAX * tunnel_px_width / L)
+    scale_y = (tunnel_px_height - 2 * r_px) / (W - 2 * R_MAX)
 
     pygame.display.init()
     pygame.font.init()
@@ -104,12 +107,15 @@ def visualize_simulation(data):
 
         screen.fill(BG_COLOR)
 
-        pygame.draw.rect(screen, TUNNEL_COLOR, (PADDING_X, PADDING_Y, tunnel_px_width, tunnel_px_height), 2)
+        pygame.draw.rect(screen,
+                         TUNNEL_COLOR,
+                         (PADDING_X, PADDING_Y + r_px, tunnel_px_width, tunnel_px_height - 2 * r_px),
+                         2)
 
         _, particles = timesteps[timestep_index]
         for pid, p in particles.items():
             x = int(PADDING_X + p["x"] * scale_x)
-            y = int(PADDING_Y + (data["W"] - p["y"]) * scale_y)
+            y = int(PADDING_Y + r_px + (W - R_MAX - p["y"]) * scale_y)
             color = pick_color(pid, p["vx"])
             pygame.draw.circle(screen, color, (x, y),  max(2, int(p["r"] * scale_x)))
             draw_arrow(screen, x, y, p["vx"], -p["vy"])
