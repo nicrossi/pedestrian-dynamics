@@ -7,7 +7,7 @@ public record Parameters(
         double corridorLength, double corridorWidth,
         double inflowPerSide,
         double rMin, double rMax,
-        double A_w, double B_w,double tau) {
+        double A_w, double B_w, double tau, double beta) {
 
     public static Builder builder() {
         return new Builder();
@@ -25,7 +25,14 @@ public record Parameters(
         private double rMin = 0.10, rMax = 0.35;
         private double dt = rMin/(2*1.5);//v_d==v_e ~= 0.033;
         private double outDt = 5*dt;
-        private final double tau=0.5;
+        private final double tau = 0.5;
+        private double beta = 0.9;
+
+        public Builder beta(double beta) {
+            this.beta = beta;
+            return this;
+        }
+
         public Builder desiredSpeed(double v0) {
             v = v0;
             return this;
@@ -83,7 +90,7 @@ public record Parameters(
         }
 
         public Parameters build() {
-            return new Parameters(v, A_p, B_p, dt, outDt, L, W, inflow, rMin, rMax, A_w, B_w,tau);
+            return new Parameters(v, A_p, B_p, dt, outDt, L, W, inflow, rMin, rMax, A_w, B_w, tau, beta);
         }
     }
 }

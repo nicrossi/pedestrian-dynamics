@@ -48,7 +48,17 @@ public final class AaCpmAvoidance implements MovementStrategy {
             acc = acc.add(rVersor.mul(weight));
         }
 
-        Vector2D dir = desiredDir.add(acc).normalised();
-        return dir.length() == 0 ? desiredDir : dir;
+        Vector2D dirVec = desiredDir.add(acc);
+        // Fallback: keep moving forward to avoid 0/0 → NaN or non‑finite results
+        if (dirVec.length() == 0 || !Double.isFinite(dirVec.x()) || !Double.isFinite(dirVec.y())) {
+            dirVec = Vector2D.of(sign, 0);
+        }
+
+        Vector2D dir = dirVec.normalised();
+        // Prevent reversing longitudinal component
+        if (dir.x() * a.goalSign() <= 0) {
+            dir = Vector2D.of(a.goalSign(), dir.y()).normalised();
+        }
+        return dir;
     }
 }

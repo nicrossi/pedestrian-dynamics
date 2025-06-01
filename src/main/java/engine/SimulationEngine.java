@@ -44,17 +44,23 @@ public final class SimulationEngine {
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
             List<Particle> neighbors = getNeighbors(i);
+            double rNew = adjustRadius(p, neighbors);
 
-            p = p.withRadius(adjustRadius(p, neighbors,t));
-            Vector2D dir = movementStrategy.desiredDirection(p, neighbors)
-                    .add(wallForce(p.pos(), p.radius()))
-                    .normalised();
+            Vector2D dir = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors)
+                    .add(wallForce(p.pos(), rNew)).normalised();
+            double speed = (rNew == params.rMin())
+                    ? params.desiredSpeed()
+                    : freeSpeed(rNew);
 
-            Vector2D velocity = dir.mul(params.desiredSpeed());
-            Vector2D position = p.pos().add(velocity.mul(params.dt()));
-            double y = Math.max(p.radius(), Math.min(W - p.radius(), position.y()));
-            p = p.withPosition(Vector2D.of(position.x(), y)).withVelocity(velocity);
-            next.add(p);
+            Vector2D vel = dir.mul(speed);
+            Vector2D pos = p.pos().add(vel.mul(params.dt()));
+            double x = Math.max(rNew, pos.x());   // left wall
+            double y = Math.max(rNew, Math.min(W - rNew, pos.y()));
+
+            Particle pNext = p.withPosition(Vector2D.of(x, y))
+                    .withVelocity(vel)
+                    .withRadius(rNew);
+            next.add(pNext);
         }
         particles.clear();
         particles.addAll(next);
@@ -62,14 +68,22 @@ public final class SimulationEngine {
         return new SimulationState(tick, List.copyOf(next));
     }
 
-    private double adjustRadius(Particle p, List<Particle> neighbors,double t) {
+    private double adjustRadius(Particle p, List<Particle> neighbors) {
         for(Particle neighbour:neighbors){
             if(areColliding(p,neighbour))
                 return params.rMin();
         }
-        double r=p.radius();
-        double dt=params.dt();
-        return Math.min(params.rMax(), r * (t-dt) + params.rMax() * dt/params.tau());
+        double r = p.radius();
+        double dr = (params.rMax() - r) * params.dt() / params.tau();
+        double rNew = r + dr;
+        return Math.min(params.rMax(), Math.max(params.rMin(), rNew));
+    }
+
+    private double freeSpeed(double r) {
+        double alpha = (r - params.rMin()) / (params.rMax() - params.rMin());
+        if (alpha <= 0) return 0;
+        if (alpha >= 1) return params.desiredSpeed();
+        return params.desiredSpeed() * Math.pow(alpha, params.beta());
     }
 
     private boolean areColliding(Particle p1,Particle p2){
@@ -156,7 +170,8 @@ public final class SimulationEngine {
     private Particle initParticle(double vx, double r) {
         double y = r + Math.random() * (W - 2 * r);
         double x = (vx > 0 ? -r : L + r);   // spawn just outside, slide in next tick
-        return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r);
+        int goalSign = vx > 0 ? 1 : -1;
+        return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r, goalSign);
     }
 
     private void removeExited() {
