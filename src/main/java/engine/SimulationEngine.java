@@ -59,7 +59,7 @@ public final class SimulationEngine {
 
             Vector2D vel = dir.mul(speed);
             Vector2D pos = p.pos().add(vel.mul(params.dt()));
-            double x = Math.max(rNew, pos.x());   // left wall
+            double x =  p.goalSign() > 0 ? Math.max(rNew, pos.x()) : Math.min(L - rNew, pos.x());
             double y = Math.max(rNew, Math.min(W - rNew, pos.y()));
 
             Particle pNext = p.withPosition(Vector2D.of(x, y))
@@ -182,8 +182,8 @@ public final class SimulationEngine {
     }
 
     private void removeExited() {
-        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
-        // particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
+//        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
+        particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
     }
 
 }
