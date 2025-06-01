@@ -20,6 +20,9 @@ public final class SimulationEngine {
     private int nextId = 0;
     private double countL = 0, countR = 0;
 
+    private static int LEFT = 0;
+    private static int RIGHT = 16;
+
     public SimulationEngine(Parameters params, int maxParticles) {
         this.params = params;
         this.maxParticles = maxParticles;
@@ -159,23 +162,24 @@ public final class SimulationEngine {
 
     private void spawnLeft() {
         if (particles.size() >= maxParticles) return;
-        particles.add(initParticle(+params.desiredSpeed(), params.rMax()));
+        particles.add(initParticle(+params.desiredSpeed(), params.rMax(), LEFT));
     }
 
     private void spawnRight() {
         if (particles.size() >= maxParticles) return;
-        particles.add(initParticle(-params.desiredSpeed(), params.rMax()));
+        particles.add(initParticle(-params.desiredSpeed(), params.rMax(), RIGHT));
     }
 
-    private Particle initParticle(double vx, double r) {
+    private Particle initParticle(double vx, double r, int begin) {
         double y = r + Math.random() * (W - 2 * r);
         double x = (vx > 0 ? -r : L + r);   // spawn just outside, slide in next tick
         int goalSign = vx > 0 ? 1 : -1;
-        return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r, goalSign);
+        return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r, goalSign, begin);
     }
 
     private void removeExited() {
-        particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
+        particles.removeIf(p -> p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius());
+        // particles.removeIf(p -> p.pos().x() < -p.radius() || p.pos().x() > L + p.radius());
     }
 
 }
