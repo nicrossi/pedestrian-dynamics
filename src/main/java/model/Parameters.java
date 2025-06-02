@@ -23,7 +23,7 @@ public record Parameters(
         private double L = 16, W = 3.6;
         private double inflow = 3.0;
         private double rMin = 0.10, rMax = 0.35;
-        private double dt = rMin/(2*1.5);//v_d==v_e ~= 0.033;
+        private double dt = 0.02;
         private double outDt = 5*dt;
         private final double tau = 0.5;
         private double beta = 0.9;
