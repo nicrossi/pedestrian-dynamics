@@ -118,10 +118,17 @@ def visualize_simulation(data, speed=1.0):
                          (PADDING_X, PADDING_Y + r_px, tunnel_px_width, tunnel_px_height - 2 * r_px),
                          2)
 
+        y_min_px = PADDING_Y + round(r_px)
+        y_max_px = PADDING_Y + round(r_px + (W - 2*R_MAX) * scale_y)
+
         _, particles = timesteps[timestep_index]
         for pid, p in particles.items():
-            x = int(PADDING_X + p["x"] * scale_x)
-            y = int(PADDING_Y + r_px + (W - R_MAX - p["y"]) * scale_y)
+            x = round(PADDING_X + p["x"] * scale_x)
+            y = round(PADDING_Y + r_px + (W - p["r"] - p["y"]) * scale_y)
+            y = max(
+                    y_min_px + round(p["r"] * scale_x),
+                    min(y_max_px - round(p["r"] * scale_x), y)
+            )
             if not (0.0 <= p["x"] <= data["L"]):
                 continue
             color = pick_color(pid, p["vx"])
