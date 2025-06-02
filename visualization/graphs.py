@@ -1,7 +1,5 @@
 import os
 import csv
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -14,7 +12,6 @@ if not os.path.exists(graphs_folder):
 def parse_output_file(file):
     data = pd.read_csv(file, index_col='time')
     return data
-
 
 def parse_output_files(output_folder):
     data = {}
@@ -68,9 +65,9 @@ def plot_avg_vx_over_qin(data):
     plt.ylabel('|Vx| Promedio')
     plt.tight_layout()
     plt.grid(True)
+    plt.savefig('graphs/avg_vx_over_qin.png')
     plt.show()
 
-    plt.savefig('graphs/avg_vx_over_qin.png')
 
 ### Ex: c
 def plot_avg_t_vs_qin(data):
@@ -102,15 +99,11 @@ def plot_avg_t_vs_qin(data):
     plt.ylabel('Tiempo Máximo Promedio')
     plt.tight_layout()
     plt.grid(True)
+    plt.savefig('graphs/avg_t_vs_qin.png')
     plt.show()
 
-    plt.savefig('graphs/avg_t_vs_qin.png')
-
-
-
-
-        
     
+
 
 data = parse_output_files('output')
 plot_avg_vx_over_qin(data)
