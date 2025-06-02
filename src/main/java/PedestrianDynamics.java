@@ -11,11 +11,11 @@ public static void main(String[] args) throws Exception {
     // Run same qIn range i times
     for (int i = 1; i < 10; i++) {
         // Run many values for qIn
-        for (int qIn = 1; qIn < 50; qIn += 5) {
-            int simulationTime = args.length > 1 ? Integer.parseInt(args[1]) : 120;//segundos
-
+        for (int qIn = 1; qIn <= 10; qIn += 1) {
             Parameters p = Parameters.builder()
                     .inflow(qIn)
+                    .dt(0.02)
+                    .outputDt(0.1)
                     .build();
 
             SimulationEngine engine = new SimulationEngine(p, 20_000);
