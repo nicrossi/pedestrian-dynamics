@@ -1,0 +1,185 @@
+"""Improved visualisation for the AA‑CPM corridor simulation.
+
+• Keeps true aspect ratio by using a single global scaling factor.
+• Draws radii and arrows in proportion to physical size & speed.
+• Automatically centres the corridor inside the window.
+• Supports pausing with <space> and stepping with →/←.
+
+Usage: python visualization.py <csv> [speed = 1.0]
+The CSV is the one produced by CsvFrameWriter (columns: t,id,x,y,vx,vy,r).
+"""
+from __future__ import annotations
+
+import csv
+import math
+import sys
+import time
+from pathlib import Path
+from typing import Dict, Tuple
+
+import pygame  # type: ignore
+
+# ── colour palette ────────────────────────────────────────────────────────────
+BG_COLOR       = (245, 245, 245)
+TUNNEL_COLOR   = (120, 120, 120)
+ARROW_COLOR    = (0, 102, 255)
+C_L            = (0x7f, 0xc9, 0x7f)  # left‑to‑right
+C_R            = (0xfd, 0xc0, 0x86)  # right‑to‑left
+LABEL_COLOR    = (40, 40, 40)
+
+WINDOW_W, WINDOW_H = 1000, 500
+PADDING            = 40  # px frame around the corridor
+
+# ── data loading ──────────────────────────────────────────────────────────────
+
+def parse_csv(path: Path) -> Dict:
+    with path.open() as f:
+        reader = csv.reader(f)
+        next(reader)  # header
+
+        data: Dict = {"timesteps": {}}
+        for row in reader:
+            t, pid, x, y, vx, vy, r = row
+            t = float(t)
+            x, y, vx, vy, r = map(float, (x, y, vx, vy, r))
+
+            frame = data["timesteps"].setdefault(t, {})
+            frame[pid] = {"x": x, "y": y, "vx": vx, "vy": vy, "r": r}
+
+        # infer geometry from first particle & params written by CsvFrameWriter
+        t0 = min(data["timesteps"].keys())
+        any_particle = next(iter(data["timesteps"][t0].values()))
+        data["R_MAX"] = any_particle["r"]
+    return data
+
+# ── utility drawing helpers ───────────────────────────────────────────────────
+
+def draw_arrow(surf, x, y, vx, vy, scale_px):
+    """Draw velocity arrow; length = |v| * scale_px (1m/s = scale_px px)."""
+    v_mag = math.hypot(vx, vy)
+    if v_mag < 1e-3:
+        return
+    vx_n, vy_n = vx / v_mag, vy / v_mag
+    length = v_mag * scale_px
+    end_x = x + vx_n * length
+    end_y = y - vy_n * length  # y axis inverted in screen coordinates
+    pygame.draw.line(surf, ARROW_COLOR, (x, y), (end_x, end_y), 2)
+
+    # arrow head
+    head_size = 6
+    angle = math.atan2(-(end_y - y), end_x - x)
+    left = (end_x - head_size * math.cos(angle - math.pi / 6),
+            end_y + head_size * math.sin(angle - math.pi / 6))
+    right = (end_x - head_size * math.cos(angle + math.pi / 6),
+             end_y + head_size * math.sin(angle + math.pi / 6))
+    pygame.draw.polygon(surf, ARROW_COLOR, [(end_x, end_y), left, right])
+
+# ── main visualiser ───────────────────────────────────────────────────────────
+
+def visualise(csv_path: Path, playback_speed: float = 1.0):
+    data = parse_csv(csv_path)
+    times = sorted(data["timesteps"].keys())
+    if len(times) < 2:
+        raise ValueError("CSV must contain at least two timesteps")
+
+    # corridor geometry
+    xs = [p["x"] for frame in data["timesteps"].values() for p in frame.values()]
+    ys = [p["y"] for frame in data["timesteps"].values() for p in frame.values()]
+    L = 16
+    W = 3.6
+    R_MAX = 0.35
+
+    # global uniform scale: 1m = SCALE px
+    available_w = WINDOW_W - 2 * PADDING
+    available_h = WINDOW_H - 2 * PADDING
+    SCALE = min(available_w / L, available_h / W)
+
+    x_off = (WINDOW_W - L * SCALE) / 2
+    y_off = (WINDOW_H - W * SCALE) / 2
+
+    def to_px(x_m: float, y_m: float) -> Tuple[int, int]:
+        px = int(x_off + x_m * SCALE)
+        py = int(y_off + (W - y_m) * SCALE)  # flip y to screen coords
+        return px, py
+
+    # arrow scaling: 1m/s ≡ ARROW_SCALE px
+    ARROW_SCALE = SCALE * 0.7
+
+    # ── pygame setup ──
+    pygame.display.init()
+    pygame.font.init()
+    font = pygame.font.SysFont(None, 20)
+    screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
+    pygame.display.set_caption("AA‑CPM corridor visualisation")
+
+    dt_sim = times[1] - times[0]
+    dt_real = dt_sim / playback_speed
+
+    i = 0
+    paused = False
+    running = True
+    clock = pygame.time.Clock()
+
+    colour_cache: Dict[str, Tuple[int, int, int]] = {}
+
+    def colour_for(pid: str, vx0: float):
+        if pid not in colour_cache:
+            colour_cache[pid] = C_L if vx0 > 0 else C_R
+        return colour_cache[pid]
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key == pygame.K_RIGHT:
+                    i = min(i + 1, len(times) - 1)
+                elif event.key == pygame.K_LEFT:
+                    i = max(i - 1, 0)
+
+        if not paused:
+            screen.fill(BG_COLOR)
+
+            # draw corridor outline
+            x0, y0 = to_px(0, 0)
+            x1, y1 = to_px(L, W)
+            pygame.draw.rect(screen, TUNNEL_COLOR, (x0, y1, x1 - x0, y0 - y1), 2)
+
+            t = times[i]
+            frame = data["timesteps"][t]
+            for pid, p in frame.items():
+                x_px, y_px = to_px(p["x"], p["y"])
+                r_px = max(2, int(p["r"] * SCALE))
+                pygame.draw.circle(screen, colour_for(pid, p["vx"]), (x_px, y_px), r_px)
+                draw_arrow(screen, x_px, y_px, p["vx"], p["vy"], ARROW_SCALE)
+
+            # timestamp label
+            label = font.render(f"t = {t:.2f}s", True, LABEL_COLOR)
+            screen.blit(label, (10, 10))
+
+            pygame.display.flip()
+            clock.tick(1 / dt_real)
+
+            if i < len(times) - 1:
+                i += 1
+        else:
+            # paused – just limit FPS
+            clock.tick(30)
+
+    pygame.quit()
+
+# ── entry point ──────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python visualization.py <particle_data.csv> [speed=1.0]")
+        sys.exit(1)
+    path_csv = Path(sys.argv[1]).expanduser()
+    if not path_csv.exists():
+        sys.exit(f"File not found: {path_csv}")
+    speed = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0
+    if speed <= 0:
+        sys.exit("speed must be > 0")
+
+    visualise(path_csv, speed)

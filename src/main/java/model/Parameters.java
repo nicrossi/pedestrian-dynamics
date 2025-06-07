@@ -1,7 +1,7 @@
 package model;
 
 public record Parameters(
-        double desiredSpeed,
+        double vMax,
         double A_p, double B_p,
         double dt, double outputDt,
         double corridorLength, double corridorWidth,

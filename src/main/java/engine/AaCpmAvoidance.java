@@ -5,60 +5,70 @@ import model.Vector2D;
 
 import java.util.List;
 
-
-/**
- * Anisotropic Adaptive Collision Potential Model (AA‑CPM).
- * Only neighbours with cos θ > 0 generate repulsion,
- * preventing the spurious attraction observed when cos θ < 0.
- */
 public final class AaCpmAvoidance implements MovementStrategy {
     private final double A_p, B_p;
+    private final double A_w, B_w;
+    private final double W;
 
-    public AaCpmAvoidance(double A, double B) {
-        this.A_p = A;
-        this.B_p = B;
+    public AaCpmAvoidance(double A_p, double B_p, double A_w, double B_w, double W) {
+        this.A_p = A_p;
+        this.B_p = B_p;
+        this.A_w = A_w;
+        this.B_w = B_w;
+        this.W = W;
     }
 
     @Override
-    public Vector2D desiredDirection(Particle a, List<Particle> neighbors) {
-        double sign = Math.signum(a.vel().x());
-        if (sign == 0) {
-            sign = 1;
-        }
-        // Always push forward
-        Vector2D desiredDir = Vector2D.of(sign, 0);
-        Vector2D acc = Vector2D.zero();
+    public Vector2D desiredDirection(Particle p_i, List<Particle> neighbours) {
+        // Desired (target) direction e_t
+        double goalSign = p_i.goalSign();
+        Vector2D e_t = Vector2D.of(goalSign, 0.0);
+        // Σ n_jc : weighted sum of pairwise collision vectors
+        Vector2D sum_n_jc = Vector2D.zero();
 
-        for (Particle particle : neighbors) {
-            if (particle.id() == a.id()) continue;
+        for (Particle p_j : neighbours) {
+            if (p_j.id() == p_i.id()) continue;
+            // Vector j->i
+            Vector2D r_ji = p_i.pos().sub(p_j.pos());
+            // Distance between centers
+            double d = r_ji.length();
+            if (d == 0.0) continue;
 
-            Vector2D r = a.pos().sub(particle.pos());
-            double dBetweenCenters = r.length();
-            if (dBetweenCenters == 0) continue;
+            Vector2D e_ji = r_ji.normalised(); // unit collision dir
+            double cosBeta = e_ji.dot(e_t);    // β between e_ji & e_t
 
-            Vector2D rVersor = r.normalised();
-            double cos = rVersor.dot(desiredDir);
-            if (cos >= 0) continue;  // skip neighbors behind
+            // Consider only frontal 180° (cos β < 0)
+            if (cosBeta >= 0.0) continue;
 
-            double anis = -cos; // (0..1) front weighting
-            // If 'separation' is positive, it indicates that the particles are not overlapping,
-            // while a negative value suggests that the particles are intersecting.
-            double separation = dBetweenCenters - a.radius() - particle.radius();
-            double weight = A_p * Math.exp(-separation / B_p) * anis;
-            acc = acc.add(rVersor.mul(weight));
-        }
-
-        Vector2D dirVec = desiredDir.add(acc);
-        // Fallback: keep moving forward to avoid 0/0 → NaN or non‑finite results
-        if (dirVec.length() == 0 || !Double.isFinite(dirVec.x()) || !Double.isFinite(dirVec.y())) {
-            dirVec = Vector2D.of(sign, 0);
+            // Separation distance between outlines (negative ⇒ overlap)
+            double d_sep = d - p_i.radius() - p_j.radius();
+            // Weight w_j (Eq.6) : A_p exp(−d_sep/B_p) (−cos β)
+            double w_j = A_p * Math.exp(-d_sep / B_p) * (-cosBeta);
+            // Contribution to Σ n_jc
+            sum_n_jc = sum_n_jc.add(e_ji.mul(w_j));
         }
 
-        Vector2D dir = dirVec.normalised();
-        // Prevent reversing longitudinal component
-        if (dir.x() * a.goalSign() <= 0) {
-            dir = Vector2D.of(a.goalSign(), dir.y()).normalised();
+        // Wall repulsion n_wc
+        double d_bottom = p_i.pos().y() - p_i.radius();
+        double d_top = (W - p_i.radius() - p_i.pos().y());
+        Vector2D n_wc = Vector2D.of(0.0,
+                A_w * Math.exp(-d_bottom / B_w) - A_w * Math.exp(-d_top / B_w));
+
+        // Here we just form e_a = (e_t + Σ n_jc)̂  (Eq.6)
+        Vector2D e_a_raw = e_t.add(sum_n_jc).add(n_wc);
+        // Fallback to e_t if the magnitude is numerically zero
+//        if (e_a_raw.lengthSq() == 0.0
+//                || !Double.isFinite(e_a_raw.x())
+//                || !Double.isFinite(e_a_raw.y())) {
+//            e_a_raw = e_t;
+//        }
+
+        Vector2D e_a = e_a_raw.normalised();
+        // Prevent reversing (always move toward goal)
+        if (e_a.x() * goalSign <= 0.0) {
+            e_a = Vector2D.of(goalSign, e_a.y());
         }
-        return dir;
+
+        return e_a;
     }
 }

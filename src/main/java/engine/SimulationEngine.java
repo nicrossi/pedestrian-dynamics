@@ -32,12 +32,17 @@ public final class SimulationEngine {
         this.maxParticles = maxParticles;
         this.L = params.corridorLength();
         this.W = params.corridorWidth();
-        this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p());
-        this.grid = new CellGrid(L, W, params.rMax(), maxParticles); // TODO adjust to the appropriate cell size
+        this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p(), params.A_w(), params.B_w(), params.corridorWidth());
+        this.grid = new CellGrid(L, W, params.rMax(), maxParticles);
 
     }
 
     public SimulationState step(long tick,double t) {
+        System.out.print(".");
+        System.out.printf("tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
+                tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
+                particles.stream().filter(pp -> pp.radius()==params.rMin()).count());
+
         spawn();
         removeExited();
 
@@ -52,12 +57,36 @@ public final class SimulationEngine {
             Particle p = particles.get(i);
             List<Particle> neighbors = getNeighbors(i);
             double rNew = adjustRadius(p, neighbors);
+            boolean inContact = (rNew == params.rMin());
 
-            Vector2D dir = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors)
-                    .add(wallForce(p.pos(), rNew)).normalised();
-            double speed = (rNew == params.rMin())
-                    ? params.desiredSpeed()
-                    : freeSpeed(rNew);
+            Vector2D dir;
+            double   speed;
+
+            if (inContact) {
+                /* 3.2a contact mode — choose e_ij of *nearest* colliding neighbour */
+                Particle nearest = null;
+                double    minDist = Double.POSITIVE_INFINITY;
+                for (Particle n : neighbors) {
+                    if (areColliding(p.withRadius(rNew), n)) {
+                        double d = n.pos().sub(p.pos()).lengthSq();
+                        if (d < minDist) { minDist = d; nearest = n; }
+                    }
+                }
+                if (nearest == null) {
+                    // numerical fall‑back (should not happen): treat as free mode
+                    dir   = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
+                    speed = freeSpeed(rNew);
+                } else {
+                    dir   = p.pos().sub(nearest.pos()).normalised();
+                    //dir = nearest.pos().sub(p.pos()).normalised();
+                    speed = params.vMax();
+                }
+            } else {
+                /* 3.2b free mode */
+                dir   = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
+                speed = freeSpeed(rNew);
+            }
+
 
             Vector2D vel = dir.mul(speed);
             Vector2D pos = p.pos().add(vel.mul(params.dt()));
@@ -88,50 +117,71 @@ public final class SimulationEngine {
 
     private double freeSpeed(double r) {
         double alpha = (r - params.rMin()) / (params.rMax() - params.rMin());
-        if (alpha <= 0) return 0;
-        if (alpha >= 1) return params.desiredSpeed();
-        return params.desiredSpeed() * Math.pow(alpha, params.beta());
+        return params.vMax() * Math.pow(Math.max(0.0, alpha), params.beta());
     }
 
-    private boolean areColliding(Particle p1,Particle p2){
-        double ri=p1.radius();
-        double rj=p2.radius();
-        boolean radiiOverlap=p1.pos().distance(p2.pos())<ri+rj;
-        boolean collide= ri == params.rMin() && radiiOverlap;
-        Vector2D vi=p1.vel();
-        Vector2D posDifference=p2.pos().sub(p1.pos());
-        double betaAngle=Math.acos(vi.dot(posDifference)/(vi.length()*posDifference.length()));
+    /**
+     * Contact criterion (paper §3.1):
+     * – If r_i = r_min: contact ⇔ radii overlap.
+     * – Else: (i) frontal sector (−π/2 < β < π/2),
+     *          (ii) radii overlap, and
+     *          (iii) the circle j intersects the strip delimited by the two
+     *          lines parallel to v_i and tangent to the circle of radius r_min
+     *          centred at i.
+     */
+    private boolean areColliding(Particle p_i, Particle p_j) {
+        double r_i = p_i.radius();
+        double r_j = p_j.radius();
+        double r_min = params.rMin();
 
-        if(ri!=params.rMin()&& betaAngle> -Math.PI/2 && betaAngle <Math.PI/2 ){
-            collide=true;
+        /* Distance and overlap test */
+        Vector2D r_ij = p_j.pos().sub(p_i.pos());
+        double d_centres = r_ij.length();
+        boolean radiiOverlap = d_centres < (r_i + r_j);
+
+        /* Case r_i = r_min ⇒ only overlap required (bullet 1) */
+        if (r_i == r_min) {
+            return radiiOverlap;
         }
-        return collide && radiiOverlap && (lineProjectionIntersects(p1,p2));
+
+        /* Signed angle β between v_i and r_ij (bullet 2) */
+        Vector2D v_i = p_i.vel();
+        if (v_i.lengthSq() == 0.0) return false; // static agent
+
+        double beta = Math.atan2(v_i.cross(r_ij), v_i.dot(r_ij));
+        boolean frontal = beta > -Math.PI / 2 && beta < Math.PI / 2;
+
+        /* Tangential-strip intersection (bullet 3) */
+        boolean stripIntersect = intersectsTangentialStrip(p_i, p_j);
+
+        return frontal && radiiOverlap && stripIntersect;
     }
 
-    private boolean lineProjectionIntersects(Particle p1, Particle p2) {
-        // Approximate: project p1's velocity direction and see if it intersects p2's radius
-        Vector2D dir = p1.vel().normalised();
-        Vector2D leftEdge = p1.vel().add(dir.mul(params.rMin()));
-        Vector2D rightEdge = p1.pos().add(dir.perpendicular().mul(-params.rMin()));
+    /**
+     * Returns true if the circle centred at j intersects either of the two
+     * lines that are parallel to v_i and tangent to the auxiliary circle of
+     * radius r_min around i (paper Fig. 1, right panel).
+     */
+    private boolean intersectsTangentialStrip(Particle p_i, Particle p_j) {
+        double r_min = params.rMin();
+        Vector2D v_i = p_i.vel();
+        if (v_i.lengthSq() == 0.0) return false; // no heading ⇒ no strip
 
-        double distToLeft = p2.pos().sub(leftEdge).length();
-        double distToRight = p2.pos().sub(rightEdge).length();
+        /* Unit vectors along and perpendicular to v_i */
+        Vector2D dir = v_i.normalised();
+        Vector2D perp = dir.perpendicular();
 
-        return (distToLeft < p2.radius() || distToRight < p2.radius());
+        /* Points on the two tangent lines */
+        Vector2D leftPt = p_i.pos().add(perp.mul(r_min));
+        Vector2D rightPt = p_i.pos().sub(perp.mul(r_min));
+
+        /* Signed distances from p_j to each line (|perp·(p - a)|) */
+        double distLeft = Math.abs(perp.dot(p_j.pos().sub(leftPt)));
+        double distRight = Math.abs(perp.dot(p_j.pos().sub(rightPt)));
+
+        return distLeft < p_j.radius() || distRight < p_j.radius();
     }
 
-    private Vector2D wallForce(Vector2D p, double r) {
-        double dBottom = p.y() - r;
-        double dTop = (W - r) - p.y();
-        Vector2D f = Vector2D.zero();
-        if (dBottom < r)
-            f = f.add(Vector2D.of(0, params.A_w() * Math.exp(-dBottom / params.B_w())));
-
-        if (dTop < r)
-            f = f.add(Vector2D.of(0, -params.A_w() * Math.exp(-dTop / params.B_w())));
-
-        return f;
-    }
 
     private List<Particle> getNeighbors(int idxSelf) {
         neighborIndices.clear();
@@ -168,12 +218,12 @@ public final class SimulationEngine {
 
     private void spawnLeft() {
         if (particles.size() >= maxParticles) return;
-        particles.add(initParticle(+params.desiredSpeed(), params.rMax(), LEFT));
+        particles.add(initParticle(+params.vMax(), params.rMax(), LEFT));
     }
 
     private void spawnRight() {
         if (particles.size() >= maxParticles) return;
-        particles.add(initParticle(-params.desiredSpeed(), params.rMax(), RIGHT));
+        particles.add(initParticle(-params.vMax(), params.rMax(), RIGHT));
     }
 
     private Particle initParticle(double vx, double r, int begin) {

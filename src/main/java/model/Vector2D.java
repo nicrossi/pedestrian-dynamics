@@ -25,6 +25,10 @@ public record Vector2D(double x, double y) {
         return x * o.x + y * o.y;
     }
 
+    public double cross(Vector2D o) {
+        return x * o.y - y * o.x;
+    }
+
     public double lengthSq() {
         return this.dot(this);
     }

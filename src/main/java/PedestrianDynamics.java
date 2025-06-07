@@ -9,9 +9,9 @@ import java.nio.file.Paths;
 public static void main(String[] args) throws Exception {
 
     // Run same qIn range i times
-    for (int i = 1; i < 10; i++) {
+    for (int i = 1; i <= 1; i++) {
         // Run many values for qIn
-        for (int qIn = 1; qIn <= 10; qIn += 1) {
+        for (int qIn = 1; qIn <= 1; qIn += 1) {
             Parameters p = Parameters.builder()
                     .inflow(qIn)
                     .dt(0.02)
