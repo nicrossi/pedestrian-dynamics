@@ -14,7 +14,6 @@ public static void main(String[] args) throws Exception {
         for (int qIn = 1; qIn <= 1; qIn += 1) {
             Parameters p = Parameters.builder()
                     .inflow(qIn)
-                    .dt(0.02)
                     .outputDt(0.1)
                     .build();
 

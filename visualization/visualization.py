@@ -26,7 +26,7 @@ def parse_particle_data(file_path):
         next(reader)  # Skip the header row
 
         for row in reader:
-            t, particle_id, x, y, xv, xy,r = row
+            t, particle_id, x, y, xv, xy,r,g = row
             t = float(t)
             x, y, xv, xy,r = map(float, (x, y, xv, xy,r))
 
@@ -133,12 +133,10 @@ def visualize_simulation(data, speed=1.0):
                 continue
             color = pick_color(pid, p["vx"])
             pygame.draw.circle(screen, color, (x, y),  max(2, int(p["r"] * scale_x)))
-            draw_arrow(screen, x, y, p["vx"], -p["vy"])
 
         screen.blit(font.render(f"t = {timesteps[timestep_index][0]:.2f} s", True, TUNNEL_COLOR), (10,10))
         pygame.display.flip()
         next_time += step
-        time.sleep(max(0, next_time - time.perf_counter()))
         timestep_index += 1
 
     pygame.quit()
