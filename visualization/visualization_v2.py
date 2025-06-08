@@ -16,8 +16,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, Tuple
-
-import pygame  # type: ignore
+import pandas as pd
+import pygame
 
 # ── colour palette ────────────────────────────────────────────────────────────
 BG_COLOR       = (245, 245, 245)
@@ -30,29 +30,38 @@ LABEL_COLOR    = (40, 40, 40)
 WINDOW_W, WINDOW_H = 1000, 500
 PADDING            = 40  # px frame around the corridor
 
-# ── data loading ──────────────────────────────────────────────────────────────
+def parse_csv(path: Path, chunk_size: int = 50_000) -> Dict:
+    data: Dict = {"timesteps": {}}
+    line_no = 1
+    try:
+        for chunk in pd.read_csv(
+                path,
+                chunksize=chunk_size,
+                header=0,
+                dtype={"id": str},
+                names=["t", "id", "x", "y", "vx", "vy", "r"],
+        ):
+            for row in chunk.itertuples(index=False):
+                line_no += 1
+                try:
+                    t   = float(row.t)
+                    pid = row.id
+                    x, y  = float(row.x),  float(row.y)
+                    vx, vy = float(row.vx), float(row.vy)
+                    r   = float(row.r)
+                except Exception as exc:
+                    print(f"[CSV] malformed line {line_no}: {row} — {exc}", file=sys.stderr)
+                    raise StopIteration
 
-def parse_csv(path: Path) -> Dict:
-    with path.open() as f:
-        reader = csv.reader(f)
-        next(reader)  # header
+                frame = data["timesteps"].setdefault(t, {})
+                frame[pid] = {"x": x, "y": y, "vx": vx, "vy": vy, "r": r}
+                data.setdefault("R_MAX", 0.35)
+    except StopIteration:
+        pass  # parsing stopped at first bad row
 
-        data: Dict = {"timesteps": {}}
-        for row in reader:
-            t, pid, x, y, vx, vy, r = row
-            t = float(t)
-            x, y, vx, vy, r = map(float, (x, y, vx, vy, r))
-
-            frame = data["timesteps"].setdefault(t, {})
-            frame[pid] = {"x": x, "y": y, "vx": vx, "vy": vy, "r": r}
-
-        # infer geometry from first particle & params written by CsvFrameWriter
-        t0 = min(data["timesteps"].keys())
-        any_particle = next(iter(data["timesteps"][t0].values()))
-        data["R_MAX"] = any_particle["r"]
+    if not data["timesteps"]:
+        sys.exit("CSV contained no valid rows — exiting.")
     return data
-
-# ── utility drawing helpers ───────────────────────────────────────────────────
 
 def draw_arrow(surf, x, y, vx, vy, scale_px):
     """Draw velocity arrow; length = |v| * scale_px (1m/s = scale_px px)."""
@@ -74,9 +83,8 @@ def draw_arrow(surf, x, y, vx, vy, scale_px):
              end_y + head_size * math.sin(angle + math.pi / 6))
     pygame.draw.polygon(surf, ARROW_COLOR, [(end_x, end_y), left, right])
 
-# ── main visualiser ───────────────────────────────────────────────────────────
 
-def visualise(csv_path: Path, playback_speed: float = 1.0):
+def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = False):
     data = parse_csv(csv_path)
     times = sorted(data["timesteps"].keys())
     if len(times) < 2:
@@ -153,7 +161,8 @@ def visualise(csv_path: Path, playback_speed: float = 1.0):
                 x_px, y_px = to_px(p["x"], p["y"])
                 r_px = max(2, int(p["r"] * SCALE))
                 pygame.draw.circle(screen, colour_for(pid, p["vx"]), (x_px, y_px), r_px)
-                draw_arrow(screen, x_px, y_px, p["vx"], p["vy"], ARROW_SCALE)
+                if dir_vector:
+                    draw_arrow(screen, x_px, y_px, p["vx"], p["vy"], ARROW_SCALE)
 
             # timestamp label
             label = font.render(f"t = {t:.2f}s", True, LABEL_COLOR)
@@ -170,10 +179,9 @@ def visualise(csv_path: Path, playback_speed: float = 1.0):
 
     pygame.quit()
 
-# ── entry point ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python visualization.py <particle_data.csv> [speed=1.0]")
+        print("Usage: python visualization.py <particle_data.csv> [speed=1.0] [dir_vector=False]")
         sys.exit(1)
     path_csv = Path(sys.argv[1]).expanduser()
     if not path_csv.exists():
@@ -181,5 +189,6 @@ if __name__ == "__main__":
     speed = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0
     if speed <= 0:
         sys.exit("speed must be > 0")
+    dir_vector = sys.argv[3].lower() == "true" if len(sys.argv) >= 4 else False
 
-    visualise(path_csv, speed)
+    visualise(path_csv, speed, dir_vector)
