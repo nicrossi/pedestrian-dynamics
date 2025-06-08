@@ -111,10 +111,8 @@ public final class SimulationEngine {
                 return params.rMin();
             }
         }
-        double r = p.radius();
-        double dr = (params.rMax() - r) * params.dt() / params.tau();
-        double rNew = r + dr;
-        return Math.min(params.rMax(), Math.max(params.rMin(), rNew));
+        double r =p.radius();
+        return Math.min(r+params.rMax()*params.dt()/params.tau(),params.rMax());
     }
 
     private double freeSpeed(double r) {
@@ -132,33 +130,21 @@ public final class SimulationEngine {
      * centred at i.
      */
     private boolean areColliding(Particle p_i, Particle p_j) {
-        double r_i = p_i.radius();
-        double r_j = p_j.radius();
+
         double r_min = params.rMin();
 
-        /* Distance and overlap test */
-        Vector2D r_ij = p_j.pos().sub(p_i.pos());
-        double d_centres = r_ij.length();
-        boolean radiiOverlap = d_centres < (r_i + r_j);
+        Vector2D r_ij=p_i.pos().sub(p_j.pos());
+        boolean radiiOverlap=r_ij.length() < p_i.radius()+p_j.radius();
 
-        /* Case r_i = r_min ⇒ only overlap required (bullet 1) */
-        if (r_i == r_min) {
-            return radiiOverlap;
+        boolean firstCondition=p_i.radius()==r_min && radiiOverlap;
+
+        Vector2D vel=p_i.vel();
+        double cosBeta=r_ij.dot(vel)/(vel.length()*r_ij.length());
+        if(p_i.radius()!=r_min && cosBeta>=0){
+            firstCondition=true;
         }
 
-        /* Signed angle β between v_i and r_ij (bullet 2) */
-        Vector2D v_i = p_i.vel();
-        if (v_i.lengthSq() == 0.0) {
-            return false; // static agent
-        }
-
-        double beta = Math.atan2(v_i.cross(r_ij), v_i.dot(r_ij));
-        boolean frontal = beta > -Math.PI / 2 && beta < Math.PI / 2;
-
-        /* Tangential-strip intersection (bullet 3) */
-        boolean stripIntersect = intersectsTangentialStrip(p_i, p_j);
-
-        return frontal && radiiOverlap && stripIntersect;
+        return firstCondition && intersectsTangentialStrip(p_i,p_j) && radiiOverlap;
     }
 
     /**
