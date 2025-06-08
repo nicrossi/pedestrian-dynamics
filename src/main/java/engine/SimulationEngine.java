@@ -11,6 +11,8 @@ import java.util.Iterator;
 import java.util.List;
 
 public final class SimulationEngine {
+    private static final int LEFT = 0;
+    private static final int RIGHT = 16;
     private final Parameters params;
     private final int maxParticles;
     private final double L, W;
@@ -20,12 +22,10 @@ public final class SimulationEngine {
     private final CellGrid grid;
     private int nextId = 0;
     private double countL = 0, countR = 0;
-    private int pedestriansSpawnedLeft=0;
-    private int pedestriansSpawnedRight=0;
+    private int pedestriansSpawnedLeft = 0;
+    private int pedestriansSpawnedRight = 0;
     private int pedestriansExitLeft = 0;
     private int pedestriansExitRight = 0;
-    private static int LEFT = 0;
-    private static int RIGHT = 16;
 
     public SimulationEngine(Parameters params, int maxParticles) {
         this.params = params;
@@ -37,14 +37,13 @@ public final class SimulationEngine {
 
     }
 
-    public SimulationState step(long tick,double t) {
-        System.out.print(".");
-        System.out.printf("tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
-                tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
-                particles.stream().filter(pp -> pp.radius()==params.rMin()).count());
-
+    public SimulationState step(long tick, double t) {
         spawn();
         removeExited();
+
+        System.out.printf("tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
+                tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
+                particles.stream().filter(pp -> pp.radius() == params.rMin()).count());
 
         grid.reset();
         for (int i = 0; i < particles.size(); i++) {
@@ -60,37 +59,39 @@ public final class SimulationEngine {
             boolean inContact = (rNew == params.rMin());
 
             Vector2D dir;
-            double   speed;
+            double speed;
 
             if (inContact) {
                 /* 3.2a contact mode — choose e_ij of *nearest* colliding neighbour */
                 Particle nearest = null;
-                double    minDist = Double.POSITIVE_INFINITY;
+                double minDist = Double.POSITIVE_INFINITY;
                 for (Particle n : neighbors) {
                     if (areColliding(p.withRadius(rNew), n)) {
                         double d = n.pos().sub(p.pos()).lengthSq();
-                        if (d < minDist) { minDist = d; nearest = n; }
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = n;
+                        }
                     }
                 }
                 if (nearest == null) {
                     // numerical fall‑back (should not happen): treat as free mode
-                    dir   = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
+                    dir = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
                     speed = freeSpeed(rNew);
                 } else {
-                    dir   = p.pos().sub(nearest.pos()).normalised();
-                    //dir = nearest.pos().sub(p.pos()).normalised();
+                    dir = p.pos().sub(nearest.pos()).normalised();
                     speed = params.vMax();
                 }
             } else {
                 /* 3.2b free mode */
-                dir   = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
+                dir = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
                 speed = freeSpeed(rNew);
             }
 
 
             Vector2D vel = dir.mul(speed);
             Vector2D pos = p.pos().add(vel.mul(params.dt()));
-            double x =  p.goalSign() > 0 ? Math.max(rNew, pos.x()) : Math.min(L - rNew, pos.x());
+            double x = p.goalSign() > 0 ? Math.max(rNew, pos.x()) : Math.min(L - rNew, pos.x());
             double y = Math.max(rNew, Math.min(W - rNew, pos.y()));
 
             Particle pNext = p.withPosition(Vector2D.of(x, y))
@@ -101,13 +102,14 @@ public final class SimulationEngine {
         particles.clear();
         particles.addAll(next);
 
-        return new SimulationState(tick, List.copyOf(next),pedestriansSpawnedLeft,pedestriansSpawnedRight);
+        return new SimulationState(tick, List.copyOf(next), pedestriansSpawnedLeft, pedestriansSpawnedRight);
     }
 
     private double adjustRadius(Particle p, List<Particle> neighbors) {
-        for(Particle neighbour:neighbors){
-            if(areColliding(p,neighbour))
+        for (Particle neighbour : neighbors) {
+            if (areColliding(p, neighbour)) {
                 return params.rMin();
+            }
         }
         double r = p.radius();
         double dr = (params.rMax() - r) * params.dt() / params.tau();
@@ -124,10 +126,10 @@ public final class SimulationEngine {
      * Contact criterion (paper §3.1):
      * – If r_i = r_min: contact ⇔ radii overlap.
      * – Else: (i) frontal sector (−π/2 < β < π/2),
-     *          (ii) radii overlap, and
-     *          (iii) the circle j intersects the strip delimited by the two
-     *          lines parallel to v_i and tangent to the circle of radius r_min
-     *          centred at i.
+     * (ii) radii overlap, and
+     * (iii) the circle j intersects the strip delimited by the two
+     * lines parallel to v_i and tangent to the circle of radius r_min
+     * centred at i.
      */
     private boolean areColliding(Particle p_i, Particle p_j) {
         double r_i = p_i.radius();
@@ -146,7 +148,9 @@ public final class SimulationEngine {
 
         /* Signed angle β between v_i and r_ij (bullet 2) */
         Vector2D v_i = p_i.vel();
-        if (v_i.lengthSq() == 0.0) return false; // static agent
+        if (v_i.lengthSq() == 0.0) {
+            return false; // static agent
+        }
 
         double beta = Math.atan2(v_i.cross(r_ij), v_i.dot(r_ij));
         boolean frontal = beta > -Math.PI / 2 && beta < Math.PI / 2;
@@ -165,7 +169,9 @@ public final class SimulationEngine {
     private boolean intersectsTangentialStrip(Particle p_i, Particle p_j) {
         double r_min = params.rMin();
         Vector2D v_i = p_i.vel();
-        if (v_i.lengthSq() == 0.0) return false; // no heading ⇒ no strip
+        if (v_i.lengthSq() == 0.0) {
+            return false; // no heading ⇒ no strip
+        }
 
         /* Unit vectors along and perpendicular to v_i */
         Vector2D dir = v_i.normalised();
@@ -191,7 +197,9 @@ public final class SimulationEngine {
             }
         });
         List<Particle> result = new ArrayList<>(neighborIndices.size());
-        for (int j : neighborIndices) result.add(particles.get(j));
+        for (int j : neighborIndices) {
+            result.add(particles.get(j));
+        }
         return result;
     }
 
@@ -212,18 +220,22 @@ public final class SimulationEngine {
         for (int i = 0; i < spawnRightCount; i++) {
             spawnRight();
         }
-        pedestriansSpawnedRight+=spawnRightCount;
-        pedestriansSpawnedLeft+=spawnLeftCount;
+        pedestriansSpawnedRight += spawnRightCount;
+        pedestriansSpawnedLeft += spawnLeftCount;
     }
 
     private void spawnLeft() {
-        if (particles.size() >= maxParticles) return;
-        particles.add(initParticle(+params.vMax(), params.rMax(), LEFT));
+        if (particles.size() >= maxParticles) {
+            return;
+        }
+        particles.add(initParticle(+params.vMax(), params.rMin(), LEFT));
     }
 
     private void spawnRight() {
-        if (particles.size() >= maxParticles) return;
-        particles.add(initParticle(-params.vMax(), params.rMax(), RIGHT));
+        if (particles.size() >= maxParticles) {
+            return;
+        }
+        particles.add(initParticle(-params.vMax(), params.rMin(), RIGHT));
     }
 
     private Particle initParticle(double vx, double r, int begin) {
@@ -234,16 +246,21 @@ public final class SimulationEngine {
     }
 
     private void removeExited() {
-        Iterator<Particle> it= particles.iterator();
-        while(it.hasNext()){
-            Particle p=it.next();
-            if(p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius()){
+        Iterator<Particle> it = particles.iterator();
+        while (it.hasNext()) {
+            Particle p = it.next();
+            if (p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius()) {
                 it.remove();
-                if (p.begin() == LEFT) pedestriansExitLeft++;
-                if (p.begin() == RIGHT) pedestriansExitRight++;
+                if (p.begin() == LEFT) {
+                    pedestriansExitLeft++;
+                }
+                if (p.begin() == RIGHT) {
+                    pedestriansExitRight++;
+                }
 
             }
-        }    }
+        }
+    }
 
     public boolean isFinished() {
         return pedestriansExitRight >= 100 && pedestriansExitLeft >= 100;

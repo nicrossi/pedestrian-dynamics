@@ -20,15 +20,18 @@ import pandas as pd
 import pygame
 
 # ── colour palette ────────────────────────────────────────────────────────────
-BG_COLOR       = (245, 245, 245)
-TUNNEL_COLOR   = (120, 120, 120)
-ARROW_COLOR    = (0, 102, 255)
-C_L            = (0x7f, 0xc9, 0x7f)  # left‑to‑right
-C_R            = (0xfd, 0xc0, 0x86)  # right‑to‑left
-LABEL_COLOR    = (40, 40, 40)
+BG_COLOR = (245, 245, 245)
+TUNNEL_COLOR = (120, 120, 120)
+ARROW_COLOR = (0, 102, 255)
+C_L = (0x7f, 0xc9, 0x7f)
+C_R = (0xfd, 0xc0, 0x86)
+HC_R = (0xa6, 0x61, 0x1a)
+HC_L = (0x01, 0x85, 0x71)
+LABEL_COLOR = (40, 40, 40)
 
 WINDOW_W, WINDOW_H = 1000, 500
-PADDING            = 40  # px frame around the corridor
+PADDING = 40  # px frame around the corridor
+
 
 def parse_csv(path: Path, chunk_size: int = 50_000) -> Dict:
     data: Dict = {"timesteps": {}}
@@ -39,22 +42,23 @@ def parse_csv(path: Path, chunk_size: int = 50_000) -> Dict:
                 chunksize=chunk_size,
                 header=0,
                 dtype={"id": str},
-                names=["t", "id", "x", "y", "vx", "vy", "r"],
+                names=["t", "id", "x", "y", "vx", "vy", "r", "goalSign"],
         ):
             for row in chunk.itertuples(index=False):
                 line_no += 1
                 try:
-                    t   = float(row.t)
+                    t = float(row.t)
                     pid = row.id
-                    x, y  = float(row.x),  float(row.y)
+                    x, y = float(row.x), float(row.y)
                     vx, vy = float(row.vx), float(row.vy)
-                    r   = float(row.r)
+                    r = float(row.r)
+                    gs = int(row.goalSign)
                 except Exception as exc:
                     print(f"[CSV] malformed line {line_no}: {row} — {exc}", file=sys.stderr)
                     raise StopIteration
 
                 frame = data["timesteps"].setdefault(t, {})
-                frame[pid] = {"x": x, "y": y, "vx": vx, "vy": vy, "r": r}
+                frame[pid] = {"x": x, "y": y, "vx": vx, "vy": vy, "r": r, "gs": gs}
                 data.setdefault("R_MAX", 0.35)
     except StopIteration:
         pass  # parsing stopped at first bad row
@@ -62,6 +66,7 @@ def parse_csv(path: Path, chunk_size: int = 50_000) -> Dict:
     if not data["timesteps"]:
         sys.exit("CSV contained no valid rows — exiting.")
     return data
+
 
 def draw_arrow(surf, x, y, vx, vy, scale_px):
     """Draw velocity arrow; length = |v| * scale_px (1m/s = scale_px px)."""
@@ -128,13 +133,6 @@ def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = Fa
     running = True
     clock = pygame.time.Clock()
 
-    colour_cache: Dict[str, Tuple[int, int, int]] = {}
-
-    def colour_for(pid: str, vx0: float):
-        if pid not in colour_cache:
-            colour_cache[pid] = C_L if vx0 > 0 else C_R
-        return colour_cache[pid]
-
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -160,7 +158,12 @@ def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = Fa
             for pid, p in frame.items():
                 x_px, y_px = to_px(p["x"], p["y"])
                 r_px = max(2, int(p["r"] * SCALE))
-                pygame.draw.circle(screen, colour_for(pid, p["vx"]), (x_px, y_px), r_px)
+                color = C_L if p["gs"] > 0 else C_R
+                highlight_color = HC_L if color == C_L else HC_R
+                pygame.draw.circle(screen, color, (x_px, y_px), r_px)
+                vx_sign = 1 if p["vx"] > 0 else -1
+                if vx_sign != p["gs"]:
+                    pygame.draw.circle(screen, highlight_color, (x_px, y_px), r_px, width=2)
                 if dir_vector:
                     draw_arrow(screen, x_px, y_px, p["vx"], p["vy"], ARROW_SCALE)
 
@@ -178,6 +181,7 @@ def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = Fa
             clock.tick(30)
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

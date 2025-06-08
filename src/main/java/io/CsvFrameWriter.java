@@ -33,14 +33,14 @@ public final class CsvFrameWriter implements Closeable {
         }
 
         if (!skipHeader) {
-            bw.write("time,id,x,y,vx,vy,radius");
+            bw.write("time,id,x,y,vx,vy,radius,goalSign");
             bw.newLine();
             skipHeader = true;
         }
         double timeSec = s.tick() * dt;
         for (Particle particle : s.particles()) {
             Vector2D p = particle.pos(), v = particle.vel();
-            bw.write(timeSec + "," + particle.id() + "," + p.x() + "," + p.y() + "," + v.x() + "," + v.y() + "," + particle.radius());
+            bw.write(timeSec + "," + particle.id() + "," + p.x() + "," + p.y() + "," + v.x() + "," + v.y() + "," + particle.radius() + "," + particle.goalSign());
             bw.newLine();
         }
     }

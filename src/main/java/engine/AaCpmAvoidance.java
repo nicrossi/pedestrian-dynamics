@@ -56,17 +56,12 @@ public final class AaCpmAvoidance implements MovementStrategy {
 
         // Here we just form e_a = (e_t + Σ n_jc)̂  (Eq.6)
         Vector2D e_a_raw = e_t.add(sum_n_jc).add(n_wc);
-        // Fallback to e_t if the magnitude is numerically zero
-//        if (e_a_raw.lengthSq() == 0.0
-//                || !Double.isFinite(e_a_raw.x())
-//                || !Double.isFinite(e_a_raw.y())) {
-//            e_a_raw = e_t;
-//        }
 
         Vector2D e_a = e_a_raw.normalised();
         // Prevent reversing (always move toward goal)
-        if (e_a.x() * goalSign <= 0.0) {
-            e_a = Vector2D.of(goalSign, e_a.y());
+        if (Math.signum(e_a.x()) != p_i.goalSign()) {
+            //System.out.println("=== SIGN CHANGE ===");
+           // e_a = Vector2D.of(-e_a.x(), e_a.y());
         }
 
         return e_a;
