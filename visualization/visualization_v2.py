@@ -23,8 +23,10 @@ import pygame
 BG_COLOR = (245, 245, 245)
 TUNNEL_COLOR = (120, 120, 120)
 ARROW_COLOR = (0, 102, 255)
-C_L = (0x7f, 0xc9, 0x7f)
-C_R = (0xfd, 0xc0, 0x86)
+C_L = (0x7f, 0xc9, 0x7f, 64)
+C_L_MIN = (0x66, 0xc2, 0xa5)
+C_R = (0xfd, 0xc0, 0x86, 64)
+C_R_MIN = (0xfc, 0x8d, 0x62)
 HC_R = (0xa6, 0x61, 0x1a)
 HC_L = (0x01, 0x85, 0x71)
 LABEL_COLOR = (40, 40, 40)
@@ -124,6 +126,9 @@ def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = Fa
     font = pygame.font.SysFont(None, 20)
     screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
     pygame.display.set_caption("AA‑CPM corridor visualisation")
+    # transparent layer for RGBA discs
+    layer_L = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
+    layer_R = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
 
     dt_sim = times[1] - times[0]
     dt_real = dt_sim / playback_speed
@@ -152,21 +157,28 @@ def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = Fa
             x0, y0 = to_px(0, 0)
             x1, y1 = to_px(L, W)
             pygame.draw.rect(screen, TUNNEL_COLOR, (x0, y1, x1 - x0, y0 - y1), 2)
-
+            layer_L.fill((0, 0, 0, 0))
+            layer_R.fill((0, 0, 0, 0))
             t = times[i]
             frame = data["timesteps"][t]
             for pid, p in frame.items():
                 x_px, y_px = to_px(p["x"], p["y"])
                 r_px = max(2, int(p["r"] * SCALE))
+                r_min_px = max(1, int(0.1 * SCALE))
                 color = C_L if p["gs"] > 0 else C_R
                 highlight_color = HC_L if color == C_L else HC_R
-                pygame.draw.circle(screen, color, (x_px, y_px), r_px)
+                min_color = C_L_MIN if color == C_L else C_R_MIN
                 vx_sign = 1 if p["vx"] > 0 else -1
+                layer = layer_L if vx_sign > 0 else layer_R
+                pygame.draw.circle(layer, color, (x_px, y_px), r_px)
+                pygame.draw.circle(layer, min_color, (x_px, y_px), r_min_px)
                 if vx_sign != p["gs"]:
-                    pygame.draw.circle(screen, highlight_color, (x_px, y_px), r_px, width=2)
+                    pygame.draw.circle(layer, highlight_color, (x_px, y_px), r_px, width=2)
                 if dir_vector:
                     draw_arrow(screen, x_px, y_px, p["vx"], p["vy"], ARROW_SCALE)
 
+            screen.blit(layer_L, (0, 0))
+            screen.blit(layer_R, (0, 0))
             # timestamp label
             label = font.render(f"t = {t:.2f}s", True, LABEL_COLOR)
             screen.blit(label, (10, 10))
