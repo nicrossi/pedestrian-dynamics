@@ -33,7 +33,7 @@ public final class SimulationEngine {
         this.L = params.corridorLength();
         this.W = params.corridorWidth();
         this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p(), params.A_w(), params.B_w(), params.corridorWidth());
-        this.grid = new CellGrid(L, W, params.rMax(), maxParticles);
+        this.grid = new CellGrid(L, W, 1.1 * params.rMax(), maxParticles);
 
     }
 
