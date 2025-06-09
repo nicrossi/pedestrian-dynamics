@@ -41,8 +41,8 @@ public final class SimulationEngine {
         spawn();
         removeExited();
 
-        System.out.printf("tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
-                tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
+        System.out.printf("Qin: %f, tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
+                params.inflowPerSide(), tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
                 particles.stream().filter(pp -> pp.radius() == params.rMin()).count());
 
         grid.reset();
@@ -56,43 +56,31 @@ public final class SimulationEngine {
             Particle p = particles.get(i);
             List<Particle> neighbors = getNeighbors(i);
             double rNew = adjustRadius(p, neighbors);
-            boolean inContact = (rNew == params.rMin());
+            boolean inContact = (p.radius() == params.rMin());
 
             Vector2D dir;
             double speed;
 
             if (inContact) {
-                /* 3.2a contact mode — choose e_ij of *nearest* colliding neighbour */
-                Particle nearest = null;
-                double minDist = Double.POSITIVE_INFINITY;
+                Vector2D sum = Vector2D.zero();
                 for (Particle n : neighbors) {
-                    if (areColliding(p.withRadius(rNew), n)) {
-                        double d = n.pos().sub(p.pos()).lengthSq();
-                        if (d < minDist) {
-                            minDist = d;
-                            nearest = n;
-                        }
+                    if (p.id() == n.id()) continue;
+
+                    if (areColliding(p, n)) {
+                        sum = sum.add(p.pos().sub(n.pos()).normalised());
                     }
                 }
-                if (nearest == null) {
-                    // numerical fall‑back (should not happen): treat as free mode
-                    dir = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
-                    speed = freeSpeed(rNew);
-                } else {
-                    dir = p.pos().sub(nearest.pos()).normalised();
-                    speed = params.vMax();
-                }
+                dir = sum.normalised();
+                speed = params.vMax();
             } else {
-                /* 3.2b free mode */
-                dir = movementStrategy.desiredDirection(p.withRadius(rNew), neighbors);
-                speed = freeSpeed(rNew);
+                dir = movementStrategy.desiredDirection(p, neighbors);
+                speed = freeSpeed(p.radius());
             }
-
 
             Vector2D vel = dir.mul(speed);
             Vector2D pos = p.pos().add(vel.mul(params.dt()));
-            double x = p.goalSign() > 0 ? Math.max(rNew, pos.x()) : Math.min(L - rNew, pos.x());
-            double y = Math.max(rNew, Math.min(W - rNew, pos.y()));
+            double x = p.goalSign() > 0 ? Math.max(p.radius(), pos.x()) : Math.min(L - p.radius(), pos.x());
+            double y = Math.max(p.radius(), Math.min(W - p.radius(), pos.y()));
 
             Particle pNext = p.withPosition(Vector2D.of(x, y))
                     .withVelocity(vel)
@@ -120,22 +108,11 @@ public final class SimulationEngine {
         return params.vMax() * Math.pow(Math.max(0.0, alpha), params.beta());
     }
 
-    /**
-     * Contact criterion (paper §3.1):
-     * – If r_i = r_min: contact ⇔ radii overlap.
-     * – Else: (i) frontal sector (−π/2 < β < π/2),
-     * (ii) radii overlap, and
-     * (iii) the circle j intersects the strip delimited by the two
-     * lines parallel to v_i and tangent to the circle of radius r_min
-     * centred at i.
-     */
     private boolean areColliding(Particle p_i, Particle p_j) {
 
         double r_min = params.rMin();
-
-        Vector2D r_ij=p_i.pos().sub(p_j.pos());
+        Vector2D r_ij=p_j.pos().sub(p_i.pos());
         boolean radiiOverlap=r_ij.length() < p_i.radius()+p_j.radius();
-
         boolean firstCondition=p_i.radius()==r_min && radiiOverlap;
 
         Vector2D vel=p_i.vel();
@@ -144,7 +121,7 @@ public final class SimulationEngine {
             firstCondition=true;
         }
 
-        return firstCondition && intersectsTangentialStrip(p_i,p_j) && radiiOverlap;
+        return firstCondition && radiiOverlap && intersectsTangentialStrip(p_i,p_j);
     }
 
     /**
@@ -156,22 +133,21 @@ public final class SimulationEngine {
         double r_min = params.rMin();
         Vector2D v_i = p_i.vel();
         if (v_i.lengthSq() == 0.0) {
-            return false; // no heading ⇒ no strip
+            return false; // No heading ⇒ no strip
         }
 
-        /* Unit vectors along and perpendicular to v_i */
         Vector2D dir = v_i.normalised();
         Vector2D perp = dir.perpendicular();
 
-        /* Points on the two tangent lines */
-        Vector2D leftPt = p_i.pos().add(perp.mul(r_min));
-        Vector2D rightPt = p_i.pos().sub(perp.mul(r_min));
+        Vector2D diff = p_j.pos().sub(p_i.pos());
 
-        /* Signed distances from p_j to each line (|perp·(p - a)|) */
-        double distLeft = Math.abs(perp.dot(p_j.pos().sub(leftPt)));
-        double distRight = Math.abs(perp.dot(p_j.pos().sub(rightPt)));
+        // Check if j is in front of i
+        double forward = dir.dot(diff);
+        if (forward < 0) return false;
 
-        return distLeft < p_j.radius() || distRight < p_j.radius();
+        double dist = Math.abs(perp.dot(diff));
+
+        return dist < r_min + p_j.radius();
     }
 
 
@@ -235,7 +211,8 @@ public final class SimulationEngine {
         Iterator<Particle> it = particles.iterator();
         while (it.hasNext()) {
             Particle p = it.next();
-            if (p.begin() == LEFT && p.pos().x() > L || p.begin() == RIGHT && p.pos().x() < 1 - p.radius()) {
+            if (p.begin() == LEFT && p.pos().x() > L
+                    || p.begin() == RIGHT && p.pos().x() < 0) {
                 it.remove();
                 if (p.begin() == LEFT) {
                     pedestriansExitLeft++;

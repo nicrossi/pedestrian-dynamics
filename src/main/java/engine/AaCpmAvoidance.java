@@ -3,7 +3,10 @@ package engine;
 import model.Particle;
 import model.Vector2D;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Vector;
 
 public final class AaCpmAvoidance implements MovementStrategy {
     private final double A_p, B_p;
@@ -18,52 +21,53 @@ public final class AaCpmAvoidance implements MovementStrategy {
         this.W = W;
     }
 
+    private record Neighbor(double dij, Vector2D wn) {}
+
     @Override
-    public Vector2D desiredDirection(Particle p_i, List<Particle> neighbours) {
+    public Vector2D desiredDirection(Particle p_i, List<Particle> neighbors) {
         // Desired (target) direction e_t
         double goalSign = p_i.goalSign();
-        Vector2D e_t = Vector2D.of(goalSign, 0.0);
-        // Σ n_jc : weighted sum of pairwise collision vectors
+        Vector2D target = Vector2D.of(goalSign > 0 ? 16 : 0, p_i.pos().y());
+        Vector2D e_t = target.sub(p_i.pos()).normalised();
         Vector2D sum_n_jc = Vector2D.zero();
 
-        for (Particle p_j : neighbours) {
+        Vector2D v_i = p_i.vel();
+        List<Neighbor> frontNeighbors = new ArrayList<>(5);
+
+        for (Particle p_j : neighbors) {
             if (p_j.id() == p_i.id()) continue;
-            // Vector j->i
-            Vector2D r_ji = p_i.pos().sub(p_j.pos());
-            // Distance between centers
-            double d = r_ji.length();
+            Vector2D r_ij = p_j.pos().sub(p_i.pos());
+            double d = r_ij.length();
             if (d == 0.0) continue;
+            // v_i · r_ij ≥ 0
+            if (v_i.lengthSq() > 0 && v_i.dot(r_ij) / (v_i.length() * d) < 0.0) continue;
 
-            Vector2D e_ji = r_ji.normalised(); // unit collision dir
-            double cosBeta = e_ji.dot(e_t);    // β between e_ji & e_t
-
+            Vector2D v_ij = p_j.vel().sub(v_i);
+            Vector2D e_ij = p_i.pos().sub(p_j.pos()).normalised();
+            double cosBeta = v_ij.length() == 0 ? 0 : v_ij.dot(e_t) / v_ij.length();
             // Consider only frontal 180° (cos β < 0)
-            if (cosBeta >= 0.0) continue;
+            if (cosBeta >= 0.0 || Double.isNaN(cosBeta)) continue;
 
-            // Separation distance between outlines (negative ⇒ overlap)
-            double d_sep = d - p_i.radius() - p_j.radius();
-            // Weight w_j (Eq.6) : A_p exp(−d_sep/B_p) (−cos β)
-            double w_j = A_p * Math.exp(-d_sep / B_p) * (-cosBeta);
-            // Contribution to Σ n_jc
-            sum_n_jc = sum_n_jc.add(e_ji.mul(w_j));
+            double alpha = v_ij.length() == 0 ? 0 : Math.acos(Math.max(-1, Math.min(1, v_ij.dot(e_ij) / v_ij.length())));
+            double fa = Math.abs(alpha - Math.PI / 2);
+            Vector2D e_ij_c = e_ij.rotate(Math.signum(v_ij.cross(e_ij))* fa);
+//            System.out.printf("cosBeta: %f, alpha: %f, fa: %f\n", cosBeta, alpha, fa);
+            double w_j = A_p * Math.exp(-d / B_p);
+            frontNeighbors.add(new Neighbor(d, e_ij_c.mul(w_j)));
+        }
+        frontNeighbors.sort(Comparator.comparingDouble(Neighbor::dij));
+        for (int k=0; k < Math.min(2, frontNeighbors.size()); k++) {
+            sum_n_jc = sum_n_jc.add(frontNeighbors.get(k).wn());
         }
 
         // Wall repulsion n_wc
-        double d_bottom = p_i.pos().y() - p_i.radius();
-        double d_top = (W - p_i.radius() - p_i.pos().y());
-        Vector2D n_wc = Vector2D.of(0.0,
-                A_w * Math.exp(-d_bottom / B_w) - A_w * Math.exp(-d_top / B_w));
+        double dBottom = p_i.pos().y();
+        boolean closerToBottom = dBottom < W - dBottom;
+        Vector2D w = Vector2D.of(p_i.pos().x(), closerToBottom ? 0.0 : W);
+        Vector2D ei_w = w.sub(p_i.pos()).normalised();
+        double d_iw = closerToBottom ? dBottom : W - dBottom;
+        Vector2D n_wc = ei_w.mul(A_w * Math.exp(-d_iw / B_w));
 
-        // Here we just form e_a = (e_t + Σ n_jc)̂  (Eq.6)
-        Vector2D e_a_raw = e_t.add(sum_n_jc).add(n_wc);
-
-        Vector2D e_a = e_a_raw.normalised();
-        // Prevent reversing (always move toward goal)
-        if (Math.signum(e_a.x()) != p_i.goalSign()) {
-            //System.out.println("=== SIGN CHANGE ===");
-           // e_a = Vector2D.of(-e_a.x(), e_a.y());
-        }
-
-        return e_a;
+        return e_t.add(sum_n_jc).add(n_wc).normalised(); // e_a
     }
 }
