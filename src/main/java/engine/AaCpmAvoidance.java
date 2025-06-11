@@ -52,8 +52,7 @@ public final class AaCpmAvoidance implements MovementStrategy {
             double det= e_ij.cross(v_ij)/v_ij.length();
             double alpha =Math.atan2(det,dot);
             double fa = Math.abs(Math.abs(alpha) - Math.PI / 2);
-            Vector2D e_ij_c = e_ij.rotate(-Math.signum(alpha)* fa);
-//            System.out.printf("cosBeta: %f, alpha: %f, fa: %f\n", cosBeta, alpha, fa);
+            Vector2D e_ij_c = e_ij.rotate((alpha == 0 ? 1.0 : -Math.signum(alpha)) * fa);
             double w_j = A_p * Math.exp(-d / B_p);
             frontNeighbors.add(new Neighbor(d, e_ij_c.mul(w_j)));
         }
