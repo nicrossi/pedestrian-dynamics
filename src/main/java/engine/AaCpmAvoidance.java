@@ -40,13 +40,13 @@ public final class AaCpmAvoidance implements MovementStrategy {
             double d = r_ij.length();
             if (d == 0.0) continue;
             // v_i · r_ij ≥ 0
-            if (v_i.lengthSq() > 0 && v_i.dot(r_ij) / (v_i.length() * d) < 0.0) continue;
+            if (!isFrontalParticle(p_i,p_j)) continue;
 
             Vector2D v_ij = p_j.vel().sub(v_i);
             Vector2D e_ij = p_i.pos().sub(p_j.pos()).normalised();
-            double cosBeta = v_ij.length() == 0 ? 0 : v_ij.dot(e_t) / v_ij.length();
+            double Beta = getAngle(v_ij,e_t);
             // Consider only frontal 180° (cos β < 0)
-            if (cosBeta >= 0.0 || Double.isNaN(cosBeta)) continue;
+            if (v_ij.length()==0||Math.abs(Beta) <Math.PI/2) continue;
 
             double dot=e_ij.dot(v_ij)/v_ij.length();
             double det= e_ij.cross(v_ij)/v_ij.length();
@@ -70,5 +70,20 @@ public final class AaCpmAvoidance implements MovementStrategy {
         Vector2D n_wc = ei_w.mul(A_w * Math.exp(-d_iw / B_w));
 
         return e_t.add(sum_n_jc).add(n_wc).normalised(); // e_a
+    }
+    public boolean isFrontalParticle(Particle pi, Particle pj) {
+        double x = pi.pos().x();
+        boolean isGoingRight = pi.goalSign()==1;
+        if (isGoingRight) {
+            return pj.pos().x() >= x;
+        }
+        return pj.pos().x() <= x;
+    }
+    public double getAngle(Vector2D v,Vector2D u) {
+        double dot = v.dot(u);
+        double norm1 = u.length();
+        double norm2 = v.length();
+        double cos = Math.max(-1, Math.min(dot / (norm1 * norm2), 1));
+        return Math.acos(cos);
     }
 }

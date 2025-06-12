@@ -9,6 +9,7 @@ import space.CellGrid;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Vector;
 
 public final class SimulationEngine {
     private static final int LEFT = 0;
@@ -38,8 +39,8 @@ public final class SimulationEngine {
     }
 
     public SimulationState step(long tick, double t) {
-        spawn();
         removeExited();
+        spawn();
 
         System.out.printf("Qin: %f, tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
                 params.inflowPerSide(), tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
@@ -51,12 +52,27 @@ public final class SimulationEngine {
         }
 
         List<Particle> next = new ArrayList<>(particles.size());
-
+        for(int i = 0; i < particles.size(); i++){
+            Particle p = particles.get(i);
+            final Particle particle=p;
+            List<Particle> neighbors = new ArrayList<>(particles);
+            neighbors.removeIf(e-> e.id()==particle.id());
+            double rNew = adjustRadius(p, neighbors);
+            p=p.withRadius(rNew);
+            particles.set(i,p);
+        }
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
-            List<Particle> neighbors = getNeighbors(i);
-            double rNew = adjustRadius(p, neighbors);
-            boolean inContact = (p.radius() == params.rMin());
+            final Particle particle=p;
+            List<Particle> neighbors = new ArrayList<>(particles);
+            neighbors.removeIf(e-> e.id()==particle.id());
+            boolean inContact=false;
+            for(Particle n:neighbors){
+                if(areColliding(p,n)){
+                    inContact=true;
+                    break;
+                }
+            }
 
             Vector2D dir;
             double speed;
@@ -83,8 +99,8 @@ public final class SimulationEngine {
             double y = Math.max(p.radius(), Math.min(W - p.radius(), pos.y()));
 
             Particle pNext = p.withPosition(Vector2D.of(x, y))
-                    .withVelocity(vel)
-                    .withRadius(rNew);
+                    .withVelocity(vel);
+
             next.add(pNext);
         }
         particles.clear();
@@ -102,10 +118,14 @@ public final class SimulationEngine {
         double r =p.radius();
         return Math.min(r+params.rMax()*params.dt()/params.tau(),params.rMax());
     }
+    private boolean isCollidingWall(Particle p){
+        double wallCoord=p.pos().y()>W/2?W:0;
+        return Math.abs(wallCoord-p.pos().y())<params.rMin();
 
+    }
     private double freeSpeed(double r) {
         double alpha = (r - params.rMin()) / (params.rMax() - params.rMin());
-        return params.vMax() * Math.pow(Math.max(0.0, alpha), params.beta());
+        return params.vMax() * Math.pow(alpha, params.beta());
     }
 
     private boolean areColliding(Particle p_i, Particle p_j) {
@@ -190,14 +210,14 @@ public final class SimulationEngine {
         if (particles.size() >= maxParticles) {
             return;
         }
-        particles.add(initParticle(+params.vMax(), params.rMin(), LEFT));
+        particles.add(initParticle(+params.vMax(), params.rMax(), LEFT));
     }
 
     private void spawnRight() {
         if (particles.size() >= maxParticles) {
             return;
         }
-        particles.add(initParticle(-params.vMax(), params.rMin(), RIGHT));
+        particles.add(initParticle(-params.vMax(), params.rMax(), RIGHT));
     }
 
     private Particle initParticle(double vx, double r, int begin) {
@@ -211,8 +231,8 @@ public final class SimulationEngine {
         Iterator<Particle> it = particles.iterator();
         while (it.hasNext()) {
             Particle p = it.next();
-            if (p.begin() == LEFT && p.pos().x() > L
-                    || p.begin() == RIGHT && p.pos().x() < 0) {
+            if (p.begin() == LEFT && p.pos().x() >= L
+                    || p.begin() == RIGHT && p.pos().x() <= 0) {
                 it.remove();
                 if (p.begin() == LEFT) {
                     pedestriansExitLeft++;
