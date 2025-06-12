@@ -14,7 +14,7 @@ public static void main(String[] args) throws Exception {
         for (int qIn = 1; qIn <= 3; qIn += 1) {
             Parameters p = Parameters.builder()
                     .inflow(qIn)
-                    .outputDt(0.033)
+                    .outputDt(0.1)
                     .build();
 
             SimulationEngine engine = new SimulationEngine(p, 20_000);

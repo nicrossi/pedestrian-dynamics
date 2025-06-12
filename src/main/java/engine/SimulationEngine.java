@@ -198,16 +198,6 @@ public final class SimulationEngine {
             return;
         }
         particles.add(initParticle(+params.vMax(), params.rMax(), LEFT));
-        /*
-        for(;;){
-            Particle newP=initParticle(+params.vMax(), params.rMax(),LEFT);
-            boolean collided=particles.stream().anyMatch(p->areColliding(newP,p));
-            if(!collided){
-                particles.add(newP);
-                return;
-            }
-        }
-        */
     }
 
     private void spawnRight() {
@@ -215,16 +205,6 @@ public final class SimulationEngine {
             return;
         }
         particles.add(initParticle(-params.vMax(), params.rMax(), RIGHT));
-        /*
-        for(;;){
-            Particle newP=initParticle(-params.vMax(), params.rMax(), RIGHT);
-            boolean collided=particles.stream().anyMatch(p->areColliding(newP,p));
-            if(!collided){
-                particles.add(newP);
-                return;
-            }
-        }
-        */
     }
 
     private Particle initParticle(double vx, double r, int begin) {

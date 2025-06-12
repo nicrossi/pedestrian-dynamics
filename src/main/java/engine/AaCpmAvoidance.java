@@ -36,8 +36,7 @@ public final class AaCpmAvoidance implements MovementStrategy {
         for (Particle p_j : neighborsByDistance.subList(0,Math.min(2,neighborsByDistance.size()))) {
             Vector2D r_ij = p_j.pos().sub(p_i.pos());
             double d = r_ij.length();
-            if (d == 0.0) throw new ArithmeticException("aghhh");
-            // v_i · r_ij ≥ 0
+            if (d == 0.0) throw new ArithmeticException("Overlapping particles");
 
             Vector2D v_ij = p_j.vel().sub(v_i);
             Vector2D e_ij = p_i.pos().sub(p_j.pos()).normalised();
