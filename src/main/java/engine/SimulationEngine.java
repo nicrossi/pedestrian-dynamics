@@ -32,7 +32,7 @@ public final class SimulationEngine {
         this.L = params.corridorLength();
         this.W = params.corridorWidth();
         this.movementStrategy = new AaCpmAvoidance(params.A_p(), params.B_p(), params.A_w(), params.B_w(), params.corridorWidth());
-        this.grid = new CellGrid(L, W, 1.1 * params.rMax(), maxParticles);
+        this.grid = new CellGrid(L, W, 2*params.rMax() + params.vMax()*params.dt(), maxParticles);
 
     }
 
@@ -52,7 +52,7 @@ public final class SimulationEngine {
         for(int i = 0; i < particles.size(); i++){
             Particle p = particles.get(i);
             final Particle particle=p;
-            List<Particle> neighbors = new ArrayList<>(particles);
+            List<Particle> neighbors = getNeighbors(i);
             neighbors.removeIf(e-> e.id()==particle.id());
             double rNew = adjustRadius(p, neighbors);
             p=p.withRadius(rNew);
@@ -61,7 +61,7 @@ public final class SimulationEngine {
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
             final Particle particle=p;
-            List<Particle> neighbors = new ArrayList<>(particles);
+            List<Particle> neighbors = getNeighbors(i);
             neighbors.removeIf(e-> e.id()==particle.id());
             boolean inContact=false;
             for(Particle n:neighbors){
@@ -235,4 +235,19 @@ public final class SimulationEngine {
     public boolean isFinished() {
         return pedestriansExitRight >= 100 && pedestriansExitLeft >= 100;
     }
+
+    private List<Particle> getNeighbors(int idxSelf) {
+        neighborIndices.clear();
+        grid.forEachNeighbour(particles.get(idxSelf).pos(), j -> {
+            if (j != idxSelf) {
+                neighborIndices.add(j);
+            }
+        });
+        List<Particle> result = new ArrayList<>(neighborIndices.size());
+        for (int j : neighborIndices) {
+            result.add(particles.get(j));
+        }
+        return result;
+    }
+
 }
