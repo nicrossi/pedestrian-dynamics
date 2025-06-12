@@ -48,10 +48,11 @@ public final class AaCpmAvoidance implements MovementStrategy {
             // Consider only frontal 180° (cos β < 0)
             if (v_ij.length()==0||Math.abs(Beta) <Math.PI/2) continue;
 
-            double alpha = v_ij.length() == 0 ? 0 : Math.acos(Math.max(-1, Math.min(1, v_ij.dot(e_ij) / v_ij.length())));
-            double fa = Math.abs(alpha - Math.PI / 2);
-            Vector2D e_ij_c = e_ij.rotate(Math.signum(v_ij.cross(e_ij))* fa);
-//            System.out.printf("cosBeta: %f, alpha: %f, fa: %f\n", cosBeta, alpha, fa);
+            double dot=e_ij.dot(v_ij)/v_ij.length();
+            double det= e_ij.cross(v_ij)/v_ij.length();
+            double alpha =Math.atan2(det,dot);
+            double fa = Math.abs(Math.abs(alpha) - Math.PI / 2);
+            Vector2D e_ij_c = e_ij.rotate(-Math.signum(alpha)* fa);
             double w_j = A_p * Math.exp(-d / B_p);
             frontNeighbors.add(new Neighbor(d, e_ij_c.mul(w_j)));
         }
