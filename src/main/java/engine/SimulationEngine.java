@@ -6,10 +6,7 @@ import model.SimulationState;
 import model.Vector2D;
 import space.CellGrid;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Vector;
+import java.util.*;
 
 public final class SimulationEngine {
     private static final int LEFT = 0;
@@ -21,6 +18,7 @@ public final class SimulationEngine {
     private final List<Integer> neighborIndices = new ArrayList<>();
     private final MovementStrategy movementStrategy;
     private final CellGrid grid;
+    private final Random rng=new Random();
     private int nextId = 0;
     private double countL = 0, countR = 0;
     private int pedestriansSpawnedLeft = 0;
@@ -39,7 +37,6 @@ public final class SimulationEngine {
     }
 
     public SimulationState step(long tick, double t) {
-        removeExited();
         spawn();
 
         System.out.printf("Qin: %f, tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
@@ -95,7 +92,7 @@ public final class SimulationEngine {
 
             Vector2D vel = dir.mul(speed);
             Vector2D pos = p.pos().add(vel.mul(params.dt()));
-            double x = p.goalSign() > 0 ? Math.max(p.radius(), pos.x()) : Math.min(L - p.radius(), pos.x());
+            double x =pos.x();
             double y = Math.max(p.radius(), Math.min(W - p.radius(), pos.y()));
 
             Particle pNext = p.withPosition(Vector2D.of(x, y))
@@ -105,7 +102,7 @@ public final class SimulationEngine {
         }
         particles.clear();
         particles.addAll(next);
-
+        removeExited();
         return new SimulationState(tick, List.copyOf(next), pedestriansSpawnedLeft, pedestriansSpawnedRight);
     }
 
@@ -134,6 +131,9 @@ public final class SimulationEngine {
         Vector2D r_ij=p_j.pos().sub(p_i.pos());
         boolean radiiOverlap=r_ij.length() < p_i.radius()+p_j.radius();
         boolean firstCondition=p_i.radius()==r_min && radiiOverlap;
+        if(firstCondition){
+            return true;
+        }
 
         Vector2D vel=p_i.vel();
         double cosBeta=r_ij.dot(vel)/(vel.length()*r_ij.length());
@@ -171,19 +171,6 @@ public final class SimulationEngine {
     }
 
 
-    private List<Particle> getNeighbors(int idxSelf) {
-        neighborIndices.clear();
-        grid.forEachNeighbour(particles.get(idxSelf).pos(), j -> {
-            if (j != idxSelf) {
-                neighborIndices.add(j);
-            }
-        });
-        List<Particle> result = new ArrayList<>(neighborIndices.size());
-        for (int j : neighborIndices) {
-            result.add(particles.get(j));
-        }
-        return result;
-    }
 
     private void spawn() {
         // Calculate the expected number of particles to spawn per side this tick
@@ -207,22 +194,42 @@ public final class SimulationEngine {
     }
 
     private void spawnLeft() {
-        if (particles.size() >= maxParticles) {
+        if (pedestriansSpawnedLeft>=100) {
             return;
         }
         particles.add(initParticle(+params.vMax(), params.rMax(), LEFT));
+        /*
+        for(;;){
+            Particle newP=initParticle(+params.vMax(), params.rMax(),LEFT);
+            boolean collided=particles.stream().anyMatch(p->areColliding(newP,p));
+            if(!collided){
+                particles.add(newP);
+                return;
+            }
+        }
+        */
     }
 
     private void spawnRight() {
-        if (particles.size() >= maxParticles) {
+        if (pedestriansSpawnedRight>=100) {
             return;
         }
         particles.add(initParticle(-params.vMax(), params.rMax(), RIGHT));
+        /*
+        for(;;){
+            Particle newP=initParticle(-params.vMax(), params.rMax(), RIGHT);
+            boolean collided=particles.stream().anyMatch(p->areColliding(newP,p));
+            if(!collided){
+                particles.add(newP);
+                return;
+            }
+        }
+        */
     }
 
     private Particle initParticle(double vx, double r, int begin) {
-        double y = r + Math.random() * (W - 2 * r);
-        double x = (vx > 0 ? -r : L + r);   // spawn just outside, slide in next tick
+        double y = rng.nextDouble(params.rMin(),W-params.rMin());
+        double x = (vx > 0 ? rng.nextDouble(-0.5,0) : rng.nextDouble(L,L+0.5));   // spawn just outside, slide in next tick
         int goalSign = vx > 0 ? 1 : -1;
         return new Particle(nextId++, Vector2D.of(x, y), Vector2D.of(vx, 0), r, goalSign, begin);
     }

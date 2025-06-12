@@ -21,7 +21,6 @@ public final class AaCpmAvoidance implements MovementStrategy {
         this.W = W;
     }
 
-    private record Neighbor(double dij, Vector2D wn) {}
 
     @Override
     public Vector2D desiredDirection(Particle p_i, List<Particle> neighbors) {
@@ -32,40 +31,38 @@ public final class AaCpmAvoidance implements MovementStrategy {
         Vector2D sum_n_jc = Vector2D.zero();
 
         Vector2D v_i = p_i.vel();
-        List<Neighbor> frontNeighbors = new ArrayList<>(5);
+        List<Particle> neighborsByDistance =neighbors.stream().filter(p->isFrontalParticle(p_i,p)).sorted(Comparator.comparingDouble(p->p.pos().distance(p_i.pos()))).toList();
 
-        for (Particle p_j : neighbors) {
-            if (p_j.id() == p_i.id()) continue;
+        for (Particle p_j : neighborsByDistance.subList(0,Math.min(2,neighborsByDistance.size()))) {
             Vector2D r_ij = p_j.pos().sub(p_i.pos());
             double d = r_ij.length();
-            if (d == 0.0) continue;
+            if (d == 0.0) throw new ArithmeticException("aghhh");
             // v_i · r_ij ≥ 0
-            if (!isFrontalParticle(p_i,p_j)) continue;
 
             Vector2D v_ij = p_j.vel().sub(v_i);
             Vector2D e_ij = p_i.pos().sub(p_j.pos()).normalised();
             double Beta = getAngle(v_ij,e_t);
             // Consider only frontal 180° (cos β < 0)
-            if (v_ij.length()==0||Math.abs(Beta) <Math.PI/2) continue;
-
-            double dot=e_ij.dot(v_ij)/v_ij.length();
-            double det= e_ij.cross(v_ij)/v_ij.length();
-            double alpha =Math.atan2(det,dot);
-            double fa = Math.abs(Math.abs(alpha) - Math.PI / 2);
-            Vector2D e_ij_c = e_ij.rotate((alpha == 0 ? 1.0 : -Math.signum(alpha)) * fa);
+            Vector2D e_ij_c;
+            if (v_ij.length()==0||Math.abs(Beta) <Math.PI/2) {
+                e_ij_c = Vector2D.zero();
+            }
+            else {
+                double dot = e_ij.dot(v_ij) / v_ij.length();
+                double det = e_ij.cross(v_ij) / v_ij.length();
+                double alpha = Math.atan2(det, dot);
+                double fa = Math.abs(Math.abs(alpha) - Math.PI / 2);
+                e_ij_c = e_ij.rotate(-Math.signum(alpha) * fa);
+            }
             double w_j = A_p * Math.exp(-d / B_p);
-            frontNeighbors.add(new Neighbor(d, e_ij_c.mul(w_j)));
-        }
-        frontNeighbors.sort(Comparator.comparingDouble(Neighbor::dij));
-        for (int k=0; k < Math.min(2, frontNeighbors.size()); k++) {
-            sum_n_jc = sum_n_jc.add(frontNeighbors.get(k).wn());
+            sum_n_jc=sum_n_jc.add(e_ij_c.mul(w_j));
         }
 
         // Wall repulsion n_wc
         double dBottom = p_i.pos().y();
         boolean closerToBottom = dBottom < W - dBottom;
         Vector2D w = Vector2D.of(p_i.pos().x(), closerToBottom ? 0.0 : W);
-        Vector2D ei_w = p_i.pos().sub(w).normalised();
+        Vector2D ei_w = w.sub(p_i.pos()).normalised();
         double d_iw = closerToBottom ? dBottom : W - dBottom;
         Vector2D n_wc = ei_w.mul(A_w * Math.exp(-d_iw / B_w));
 
