@@ -65,7 +65,7 @@ public final class AaCpmAvoidance implements MovementStrategy {
         double dBottom = p_i.pos().y();
         boolean closerToBottom = dBottom < W - dBottom;
         Vector2D w = Vector2D.of(p_i.pos().x(), closerToBottom ? 0.0 : W);
-        Vector2D ei_w = w.sub(p_i.pos()).normalised();
+        Vector2D ei_w = p_i.pos().sub(w).normalised();
         double d_iw = closerToBottom ? dBottom : W - dBottom;
         Vector2D n_wc = ei_w.mul(A_w * Math.exp(-d_iw / B_w));
 
