@@ -5,18 +5,22 @@ import model.SimulationState;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public static void main(String[] args) throws Exception {
+    List<Double> timesQin4 = new ArrayList<>();
+    List<Double> timesQin8 = new ArrayList<>();
 
     // Run same qIn range i times
-    for (int i = 1; i <= 1; i++) {
+    for (int i = 1; i <= 100; i++) {
         // Run many values for qIn
-        for (int qIn = 1; qIn <= 3; qIn += 1) {
+        for (int qIn = 4; qIn <= 8; qIn += 4) {
             Parameters p = Parameters.builder()
                     .inflow(qIn)
                     .outputDt(0.1)
                     .build();
-
             SimulationEngine engine = new SimulationEngine(p, 20_000);
 
             Files.createDirectories(Paths.get("output"));
@@ -31,7 +35,14 @@ public static void main(String[] args) throws Exception {
                     tick++;
                 }
             }
+            if (qIn == 4) {
+                timesQin4.add(time);
+            } else if (qIn == 8) {
+                timesQin8.add(time);
+            }
+            System.out.println(STR."Simulation Time for qIn=\{qIn}, run=\{i}, finished in \{time} seconds. [Parameter: \{p}]");
         }
     }
-
+    System.out.println(STR."Simulation for qIn=4, finished in \{Collections.min(timesQin4)} seconds.");
+    System.out.println(STR."Simulation for qIn=8, finished in \{Collections.min(timesQin8)} seconds.");
 }

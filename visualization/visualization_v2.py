@@ -172,8 +172,8 @@ def visualise(csv_path: Path, playback_speed: float = 1.0, dir_vector: bool = Fa
                 layer = layer_L if vx_sign > 0 else layer_R
                 pygame.draw.circle(layer, color, (x_px, y_px), r_px)
                 pygame.draw.circle(layer, min_color, (x_px, y_px), r_min_px)
-                if vx_sign != p["gs"]:
-                    pygame.draw.circle(layer, highlight_color, (x_px, y_px), r_px, width=2)
+                # if vx_sign != p["gs"]:
+                #     pygame.draw.circle(layer, highlight_color, (x_px, y_px), r_px, width=2)
                 if dir_vector:
                     draw_arrow(screen, x_px, y_px, p["vx"], p["vy"], ARROW_SCALE)
 

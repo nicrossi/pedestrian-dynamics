@@ -14,7 +14,6 @@ public record Parameters(
     }
 
     public static final class Builder {
-        // TODO review these values!!
         private double A_w = 1215;
         private double B_w = 0.025;
         private double v = 1.5;

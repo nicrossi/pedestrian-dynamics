@@ -39,9 +39,9 @@ public final class SimulationEngine {
     public SimulationState step(long tick, double t) {
         spawn();
 
-        System.out.printf("Qin: %f, tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
-                params.inflowPerSide(), tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
-                particles.stream().filter(pp -> pp.radius() == params.rMin()).count());
+//        System.out.printf("Qin: %f, tick %d  size=%d  exitedL=%d exitedR=%d rMin-count=%d\n",
+//                params.inflowPerSide(), tick, particles.size(), pedestriansExitLeft, pedestriansExitRight,
+//                particles.stream().filter(pp -> pp.radius() == params.rMin()).count());
 
         grid.reset();
         for (int i = 0; i < particles.size(); i++) {
