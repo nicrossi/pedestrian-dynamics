@@ -89,46 +89,71 @@ all_ts = pd.concat(
     ignore_index=True)
 
 ### Ex b
+# --------- < |vx| >(t) para cada Qin — escala secuencial ------------
 plt.figure(figsize=(7,4))
-for qin, g in all_ts.groupby('qin'):
-    g_mean = g.groupby('time')['mean_abs_vx'].mean()
-    plt.plot(g_mean.index, g_mean.values, label=f'Qin={qin}/s')
+
+qin_vals = np.sort(all_ts['qin'].astype(int).unique())
+cmap = plt.cm.viridis                  # paleta secuencial
+norm = plt.Normalize(qin_vals.min(), qin_vals.max())
+
+for q in qin_vals:
+    g_mean = (all_ts[all_ts.qin == q]
+              .groupby('time')['mean_abs_vx']
+              .mean())
+    plt.plot(g_mean.index, g_mean.values,
+             color=cmap(norm(q)))      # color progresivo
 
 plt.xlabel('t [s]', fontsize=15)
 plt.ylabel(r'$\langle |v_x| \rangle$ [m/s]', fontsize=15)
-plt.xlim(0, max(all_ts.time))
-plt.legend()
-plt.tight_layout()
+plt.xlim(0, all_ts.time.max())
 plt.grid(alpha=.3)
+plt.tight_layout()
+
+# barra de color (horizontal, sin leyenda de líneas)
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+sm  = plt.cm.ScalarMappable(cmap=cmap, norm=norm);  sm.set_array([])
+cax = inset_axes(plt.gca(), width="35%", height="4%", loc='upper right', borderpad=0.6)
+plt.colorbar(sm, cax=cax, orientation='horizontal').set_label('Qin [1/s]', fontsize=8)
+cax.tick_params(labelsize=7)
+
 plt.savefig(f"{graphs_folder}/vx_time_series.png", dpi=150)
-# ---------- < |vx| > 10–40 s con barras ----------
+
+# ----------  <|vx|>_10–40 s  ± SEM  vs  Qin  -----------------------
 mask = (all_ts.time >= T1) & (all_ts.time <= T2)
-# promedio 10–40 s por run
+
 run_means = (all_ts[mask]
              .groupby(['qin','rep'])['mean_abs_vx']
              .mean()
              .reset_index())
-# para cada Qin: media y error estándar (SEM) sobre las réplicas
+
+def sem_flexible(group):
+    if len(group) > 1:
+        return group.std(ddof=1) / np.sqrt(len(group))
+    q = group.name
+    series = all_ts.loc[(all_ts.qin == q) & mask, 'mean_abs_vx']
+    return series.std(ddof=1) / np.sqrt(len(series))
+
 summary = (run_means
            .groupby('qin')['mean_abs_vx']
-           .agg(mean='mean', sem=lambda x: x.std(ddof=1)/np.sqrt(len(x)))
-           .reset_index())
+           .agg(mean='mean', sem=sem_flexible)
+           .reset_index()
+           .sort_values('qin'))
 
 plt.figure(figsize=(5,4))
-plt.plot(summary['qin'], summary['mean'],
-         lw=1.2, marker='o', markersize=4, color='C0', zorder=3)
 plt.errorbar(summary['qin'], summary['mean'],
              yerr=summary['sem'],
-             fmt='none',
-             ecolor='k', elinewidth=2, capsize=6,
-             zorder=2)
+             fmt='-o',                 # línea continua + marcador
+             lw=1.5, capsize=6,
+             color='C0', ecolor='k')   # un único color para todo
 
 plt.xlabel('Qin [1/s]', fontsize=15)
-plt.ylabel(r'$\langle |v_x| \rangle_{10-40\ \mathrm{s}}\ $ [m/s]', fontsize=15)
+plt.ylabel(r'$\langle |v_x| \rangle_{10-40\ \mathrm{s}}$ [m/s]', fontsize=15)
 plt.ylim(summary['mean'].min()*0.95, summary['mean'].max()*1.05)
 plt.grid(alpha=.3)
 plt.tight_layout()
 plt.savefig(f'{graphs_folder}/vx_vs_qin.png', dpi=150)
+
+
 
 # CSV con resultados
 summary.to_csv(f"{graphs_folder}/vx_vs_qin.csv", index=False)
